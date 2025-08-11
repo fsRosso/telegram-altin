@@ -1,0 +1,6 @@
+python-telegram-bot>=20.0
+playwright>=1.40.0
+asyncio
+logging
+time
+apscheduler>=3.10.0
