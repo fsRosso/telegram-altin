@@ -4,13 +4,12 @@
 """
 
 import logging
-import asyncio
-import threading
-import time
+import os
+import signal
+import sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram_bot import TelegramBot
 from config import BOT_TOKEN
-import os
 
 # Logging ayarları
 logging.basicConfig(
@@ -46,16 +45,17 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         # HTTP log'larını sustur
         pass
 
-def run_healthcheck_server():
-    """Healthcheck HTTP server'ı çalıştırır"""
+def start_healthcheck_server():
+    """Healthcheck HTTP server'ı başlatır"""
     try:
         port = int(os.environ.get('PORT', 8000))
         server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
         print(f"🌐 Healthcheck server başlatıldı: http://0.0.0.0:{port}")
         print("✅ Railway healthcheck için hazır!")
-        server.serve_forever()
+        return server
     except Exception as e:
         print(f"❌ Healthcheck server hatası: {e}")
+        return None
 
 def main():
     """Ana fonksiyon"""
@@ -63,13 +63,13 @@ def main():
         print("🚀 Telegram Altın Fiyat Botu başlatılıyor...")
         print(f"🔑 Bot Token: {BOT_TOKEN[:10]}...")
         
-        # Healthcheck server'ı ÖNCE başlat
+        # Healthcheck server'ı başlat
         print("🌐 Healthcheck server başlatılıyor...")
-        healthcheck_thread = threading.Thread(target=run_healthcheck_server, daemon=True)
-        healthcheck_thread.start()
+        server = start_healthcheck_server()
+        if not server:
+            print("❌ Healthcheck server başlatılamadı!")
+            return False
         
-        # Server'ın başlaması için kısa bir bekleme
-        time.sleep(2)
         print("✅ Healthcheck server hazır!")
         
         # Bot instance'ını oluştur
@@ -80,7 +80,12 @@ def main():
         print("📱 Telegram'da botu bulabilirsiniz")
         print("🔄 Bot çalışıyor... Durdurmak için Ctrl+C\n")
         
-        # Botu çalıştır (run() metodu async değil)
+        # HTTP server'ı ayrı thread'de çalıştır
+        import threading
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        
+        # Botu çalıştır
         bot.run()
         
     except Exception as e:
