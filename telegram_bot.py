@@ -1,7 +1,5 @@
 import logging
 import time
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from price_fetcher_fast import FastPriceFetcher
@@ -15,22 +13,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    """Railway healthcheck için minimal HTTP handler"""
-    
-    def do_GET(self):
-        if self.path == '/':
-            self.send_response(200)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b"OK")
-        else:
-            self.send_response(404)
-            self.end_headers()
-    
-    def log_message(self, format, *args):
-        pass
-
 class TelegramBot:
     def __init__(self, token):
         self.token = token
@@ -39,24 +21,7 @@ class TelegramBot:
         self.application = Application.builder().token(token).build()
         self.last_xaurub_price = None  # Son XAURUB fiyatı
         self.last_xauusd_price = None  # Son XAUUSD fiyatı (hafızada)
-        self.healthcheck_server = None
         self.setup_handlers()
-        self.start_healthcheck()
-    
-    def start_healthcheck(self):
-        """Minimal healthcheck server'ı başlatır"""
-        try:
-            import os
-            port = int(os.environ.get('PORT', 8000))
-            self.healthcheck_server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-            print(f"🌐 Healthcheck server başlatıldı: port {port}")
-            
-            # Ayrı thread'de çalıştır
-            thread = threading.Thread(target=self.healthcheck_server.serve_forever, daemon=True)
-            thread.start()
-            print("✅ Healthcheck server hazır!")
-        except Exception as e:
-            print(f"❌ Healthcheck server hatası: {e}")
     
     def setup_handlers(self):
         """Bot komutlarını ve mesaj işleyicilerini ayarlar"""
