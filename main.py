@@ -6,6 +6,7 @@
 import logging
 import asyncio
 import threading
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram_bot import TelegramBot
 from config import BOT_TOKEN
@@ -48,8 +49,10 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
 def run_healthcheck_server():
     """Healthcheck HTTP server'ı çalıştırır"""
     try:
-        server = HTTPServer(('0.0.0.0', int(os.environ.get('PORT', 8000))), HealthCheckHandler)
-        print(f"🌐 Healthcheck server başlatıldı: http://0.0.0.0:{os.environ.get('PORT', 8000)}")
+        port = int(os.environ.get('PORT', 8000))
+        server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+        print(f"🌐 Healthcheck server başlatıldı: http://0.0.0.0:{port}")
+        print("✅ Railway healthcheck için hazır!")
         server.serve_forever()
     except Exception as e:
         print(f"❌ Healthcheck server hatası: {e}")
@@ -60,16 +63,22 @@ def main():
         print("🚀 Telegram Altın Fiyat Botu başlatılıyor...")
         print(f"🔑 Bot Token: {BOT_TOKEN[:10]}...")
         
+        # Healthcheck server'ı ÖNCE başlat
+        print("🌐 Healthcheck server başlatılıyor...")
+        healthcheck_thread = threading.Thread(target=run_healthcheck_server, daemon=True)
+        healthcheck_thread.start()
+        
+        # Server'ın başlaması için kısa bir bekleme
+        time.sleep(2)
+        print("✅ Healthcheck server hazır!")
+        
         # Bot instance'ını oluştur
+        print("🤖 Bot instance oluşturuluyor...")
         bot = TelegramBot(BOT_TOKEN)
         
         print("✅ Bot başarıyla oluşturuldu!")
         print("📱 Telegram'da botu bulabilirsiniz")
         print("🔄 Bot çalışıyor... Durdurmak için Ctrl+C\n")
-        
-        # Healthcheck server'ı ayrı thread'de başlat
-        healthcheck_thread = threading.Thread(target=run_healthcheck_server, daemon=True)
-        healthcheck_thread.start()
         
         # Botu çalıştır (run() metodu async değil)
         bot.run()
