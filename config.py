@@ -14,3 +14,7 @@ DEFAULT_INCREMENT = 0.01   # Varsayılan artış miktarı
 BROWSER_TYPE = "chromium"  # "chromium", "firefox", "webkit" - chromium daha stabil
 PAGE_LOAD_WAIT = 1.5       # Sayfa yükleme bekleme süresi (3s → 1.5s)
 ENABLE_BROWSER_OPTIMIZATION = True  # Browser optimizasyonlarını etkinleştir
+
+# Instance Kontrol Ayarları
+ENABLE_INSTANCE_CONTROL = False  # Railway'de geçici olarak kapatıldı
+INSTANCE_CHECK_INTERVAL = 30   # Instance kontrol aralığı (saniye)

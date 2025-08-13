@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     """Ana fonksiyon"""
+    bot = None
     try:
         print("🚀 Telegram Altın Fiyat Botu başlatılıyor...")
         print(f"🔑 Bot Token: {BOT_TOKEN[:10]}...")
@@ -30,10 +31,22 @@ def main():
         # Botu çalıştır (run() metodu async değil)
         bot.run()
         
+    except RuntimeError as e:
+        if "zaten çalışıyor" in str(e):
+            logger.error(f"Bot instance hatası: {e}")
+            print(f"❌ {e}")
+            print("💡 Çözüm: Eski bot instance'ını durdurun veya PID dosyasını silin")
+        else:
+            logger.error(f"Runtime hatası: {e}")
+            print(f"❌ Runtime hatası: {e}")
+        return False
     except Exception as e:
         logger.error(f"Bot başlatma hatası: {e}")
         print(f"❌ Bot başlatılamadı: {e}")
         return False
+    finally:
+        if bot:
+            bot.cleanup()
     
     return True
 

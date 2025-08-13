@@ -1,9 +1,12 @@
 import logging
 import time
+import os
+import signal
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from price_fetcher_fast import FastPriceFetcher
 from tradingview_chart_fetcher import TradingViewChartFetcher
+from config import ENABLE_INSTANCE_CONTROL, INSTANCE_CHECK_INTERVAL
 import asyncio
 
 # Logging ayarları
@@ -22,6 +25,49 @@ class TelegramBot:
         self.last_xaurub_price = None  # Son XAURUB fiyatı
         self.last_xauusd_price = None  # Son XAUUSD fiyatı (hafızada)
         self.setup_handlers()
+        
+        # Instance kontrolü için PID dosyası
+        self.pid_file = f"bot_{token[:10]}.pid"
+        if ENABLE_INSTANCE_CONTROL:
+            self.check_instance()
+        else:
+            logger.info("Instance kontrolü devre dışı")
+    
+    def check_instance(self):
+        """Aynı anda sadece bir bot instance'ının çalışmasını sağlar"""
+        if os.path.exists(self.pid_file):
+            try:
+                with open(self.pid_file, 'r') as f:
+                    old_pid = int(f.read().strip())
+                
+                # PID'nin hala çalışıp çalışmadığını kontrol et
+                try:
+                    os.kill(old_pid, 0)  # Signal 0 ile process kontrolü
+                    logger.warning(f"Bot zaten çalışıyor (PID: {old_pid})")
+                    raise RuntimeError(f"Bot zaten çalışıyor (PID: {old_pid})")
+                except OSError:
+                    # Process ölmüş, PID dosyasını sil
+                    logger.info(f"Eski PID dosyası temizlendi (PID: {old_pid})")
+                    os.remove(self.pid_file)
+            except (ValueError, IOError):
+                # Geçersiz PID dosyası, sil
+                os.remove(self.pid_file)
+        
+        # Yeni PID dosyası oluştur
+        with open(self.pid_file, 'w') as f:
+            f.write(str(os.getpid()))
+        
+        logger.info(f"Bot instance başlatıldı (PID: {os.getpid()})")
+    
+    def cleanup(self):
+        """Temizlik işlemleri"""
+        if os.path.exists(self.pid_file):
+            os.remove(self.pid_file)
+            logger.info("PID dosyası temizlendi")
+    
+    def __del__(self):
+        """Destructor - PID dosyasını temizle"""
+        self.cleanup()
     
     def setup_handlers(self):
         """Bot komutlarını ve mesaj işleyicilerini ayarlar"""
@@ -346,8 +392,28 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
         # Hata işleyicisini ekle
         self.application.add_error_handler(self.error_handler)
         
-        # Botu çalıştır
-        self.application.run_polling(allowed_updates=Update.ALL_TYPES)
+        # Signal handler ekle (graceful shutdown için)
+        def signal_handler(signum, frame):
+            print(f"\n🛑 Signal {signum} alındı, bot kapatılıyor...")
+            self.cleanup()
+            exit(0)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        
+        try:
+            # Botu çalıştır
+            self.application.run_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True,  # Eski mesajları yoksay
+                close_loop=False
+            )
+        except Exception as e:
+            logger.error(f"Bot çalışma hatası: {e}")
+            self.cleanup()
+            raise
+        finally:
+            self.cleanup()
 
 # Test fonksiyonu
 if __name__ == "__main__":
