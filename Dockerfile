@@ -23,6 +23,13 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     libpango-1.0-0 \
     libasound2 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libatspi0 \
+    libdrm2 \
+    libxss1 \
+    libgtk-3-0 \
+    libgdk-pixbuf2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Çalışma dizinini ayarla
