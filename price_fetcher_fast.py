@@ -78,7 +78,7 @@ class FastPriceFetcher:
             "price_history": self.price_history.copy(),
         }
 
-    async def get_current_price(self, browser_type: str | None = None) -> float:
+    async def get_current_price(self, browser_type: str = None) -> float:
         # Varsayılan motor ayarı
         if browser_type is None:
             browser_type = BROWSER_TYPE

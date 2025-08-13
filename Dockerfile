@@ -1,5 +1,8 @@
 FROM mcr.microsoft.com/playwright/python:v1.40.0-focal
 
+# Python 3.11'i aktif et
+ENV PYTHON_VERSION=3.11
+
 # Çalışma dizinini ayarla
 WORKDIR /app
 
@@ -11,4 +14,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Bot'u çalıştır
-CMD ["python", "main.py"]
+CMD ["python3.11", "main.py"]
