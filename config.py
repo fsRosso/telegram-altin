@@ -1,7 +1,10 @@
 # Telegram Bot Konfigürasyonu
 # BotFather'dan aldığınız token'ı buraya yazın
 
-BOT_TOKEN = "8305326180:AAFXBcHmz7ZOnr-hAT9Tn5cblhzOasYXWWg"
+import os
+
+# Environment variable'dan token al, yoksa default kullan
+BOT_TOKEN = os.getenv("BOT_TOKEN_DIFFERENT", "YENİ_TOKEN_BURAYA")
 
 # Örnek token formatı:
 # BOT_TOKEN = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
@@ -18,3 +21,6 @@ ENABLE_BROWSER_OPTIMIZATION = True  # Browser optimizasyonlarını etkinleştir
 # Instance Kontrol Ayarları
 ENABLE_INSTANCE_CONTROL = False  # Railway'de geçici olarak kapatıldı
 INSTANCE_CHECK_INTERVAL = 30   # Instance kontrol aralığı (saniye)
+
+# Timezone Ayarları
+TIMEZONE = "Europe/Istanbul"  # Türkiye saati
