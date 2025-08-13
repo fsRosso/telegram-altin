@@ -1,7 +1,7 @@
 # Telegram Bot Konfigürasyonu
 # BotFather'dan aldığınız token'ı buraya yazın
 
-BOT_TOKEN = "8305326180:AAH4GU2xU8aCjozxdtmnmGyYctBFA-bRfUQ"
+BOT_TOKEN = "8305326180:AAFY42p_rrtcS6vkDgGWFlwgTmLJBOtX85o"
 
 # Örnek token formatı:
 # BOT_TOKEN = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
