@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright/python:v1.40.0-focal
+FROM mcr.microsoft.com/playwright/python:v1.48.0-focal
 
 # Python 3.11'i aktif et
 ENV PYTHON_VERSION=3.11
