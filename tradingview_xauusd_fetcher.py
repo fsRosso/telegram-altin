@@ -280,3 +280,4 @@ async def test_tradingview_fetcher():
 if __name__ == "__main__":
     # Test çalıştır
     asyncio.run(test_tradingview_fetcher())
+

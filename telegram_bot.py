@@ -337,6 +337,22 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
                 "❌ Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin."
             )
     
+    def setup_webhook(self, webhook_url: str):
+        """Webhook'u ayarlar (PythonAnywhere için)"""
+        try:
+            # Mevcut webhook'u temizle
+            self.application.bot.delete_webhook()
+            
+            # Yeni webhook'u ayarla
+            self.application.bot.set_webhook(url=webhook_url)
+            
+            print(f"✅ Webhook başarıyla ayarlandı: {webhook_url}")
+            logger.info(f"Webhook ayarlandı: {webhook_url}")
+            
+        except Exception as e:
+            print(f"❌ Webhook ayarlama hatası: {e}")
+            logger.error(f"Webhook ayarlama hatası: {e}")
+    
     def run(self):
         """Botu çalıştırır"""
         print("🤖 Telegram botu başlatılıyor...")

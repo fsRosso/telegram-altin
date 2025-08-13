@@ -340,3 +340,4 @@ async def test_simple_fetcher():
 if __name__ == "__main__":
     # Test çalıştır
     asyncio.run(test_simple_fetcher())
+

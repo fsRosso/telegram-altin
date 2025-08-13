@@ -358,3 +358,4 @@ async def test_alternative_fetcher():
 if __name__ == "__main__":
     # Test çalıştır
     asyncio.run(test_alternative_fetcher())
+
