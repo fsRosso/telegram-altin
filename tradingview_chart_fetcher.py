@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any
 import logging
 from playwright.async_api import async_playwright
 import re
+from config import BROWSER_TYPE
 
 # Logging ayarları
 logging.basicConfig(level=logging.INFO)
@@ -40,41 +41,117 @@ class TradingViewChartFetcher:
         """
         try:
             self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-web-security",
-                    "--disable-features=VizDisplayCompositor",
-                    "--disable-extensions",
-                    "--disable-plugins",
-                    "--disable-images",
-                    "--disable-javascript-harmony-shipping",
-                    "--disable-background-timer-throttling",
-                    "--disable-backgrounding-occluded-windows",
-                    "--disable-renderer-backgrounding",
-                    "--disable-features=TranslateUI",
-                    "--disable-ipc-flooding-protection",
-                    "--no-default-browser-check",
-                    "--disable-default-apps",
-                    "--disable-sync",
-                    "--metrics-recording-only",
-                    "--disable-background-networking",
-                    "--disable-component-extensions-with-background-pages",
-                    "--disable-background-mode",
-                    "--disable-client-side-phishing-detection",
-                    "--disable-hang-monitor",
-                    "--disable-prompt-on-repost",
-                    "--disable-domain-reliability",
-                    "--disable-component-update",
-                    "--disable-features=InterestBasedFeatureSuggestions",
-                    "--disable-features=AutofillServerCommunication",
-                    "--disable-features=OptimizationHints"
-                ]
-            )
+            
+            # Browser type'ı config'den al
+            if BROWSER_TYPE == "webkit":
+                self.browser = await self.playwright.webkit.launch(
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--disable-web-security",
+                        "--disable-features=VizDisplayCompositor",
+                        "--disable-extensions",
+                        "--disable-plugins",
+                        "--disable-images",
+                        "--disable-javascript-harmony-shipping",
+                        "--disable-background-timer-throttling",
+                        "--disable-backgrounding-occluded-windows",
+                        "--disable-renderer-backgrounding",
+                        "--disable-features=TranslateUI",
+                        "--disable-ipc-flooding-protection",
+                        "--no-default-browser-check",
+                        "--disable-default-apps",
+                        "--disable-sync",
+                        "--metrics-recording-only",
+                        "--disable-background-networking",
+                        "--disable-component-extensions-with-background-pages",
+                        "--disable-background-mode",
+                        "--disable-client-side-phishing-detection",
+                        "--disable-hang-monitor",
+                        "--disable-prompt-on-repost",
+                        "--disable-domain-reliability",
+                        "--disable-component-update",
+                        "--disable-features=InterestBasedFeatureSuggestions",
+                        "--disable-features=AutofillServerCommunication",
+                        "--disable-features=OptimizationHints"
+                    ]
+                )
+            elif BROWSER_TYPE == "firefox":
+                self.browser = await self.playwright.firefox.launch(
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--disable-web-security",
+                        "--disable-features=VizDisplayCompositor",
+                        "--disable-extensions",
+                        "--disable-plugins",
+                        "--disable-images",
+                        "--disable-javascript-harmony-shipping",
+                        "--disable-background-timer-throttling",
+                        "--disable-backgrounding-occluded-windows",
+                        "--disable-renderer-backgrounding",
+                        "--disable-features=TranslateUI",
+                        "--disable-ipc-flooding-protection",
+                        "--no-default-browser-check",
+                        "--disable-default-apps",
+                        "--disable-sync",
+                        "--metrics-recording-only",
+                        "--disable-background-networking",
+                        "--disable-component-extensions-with-background-pages",
+                        "--disable-background-mode",
+                        "--disable-client-side-phishing-detection",
+                        "--disable-hang-monitor",
+                        "--disable-prompt-on-repost",
+                        "--disable-domain-reliability",
+                        "--disable-component-update",
+                        "--disable-features=InterestBasedFeatureSuggestions",
+                        "--disable-features=AutofillServerCommunication",
+                        "--disable-features=OptimizationHints"
+                    ]
+                )
+            else:
+                # Default: chromium
+                self.browser = await self.playwright.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--disable-web-security",
+                        "--disable-features=VizDisplayCompositor",
+                        "--disable-extensions",
+                        "--disable-plugins",
+                        "--disable-images",
+                        "--disable-javascript-harmony-shipping",
+                        "--disable-background-timer-throttling",
+                        "--disable-backgrounding-occluded-windows",
+                        "--disable-renderer-backgrounding",
+                        "--disable-features=TranslateUI",
+                        "--disable-ipc-flooding-protection",
+                        "--no-default-browser-check",
+                        "--disable-default-apps",
+                        "--disable-sync",
+                        "--metrics-recording-only",
+                        "--disable-background-networking",
+                        "--disable-component-extensions-with-background-pages",
+                        "--disable-background-mode",
+                        "--disable-client-side-phishing-detection",
+                        "--disable-hang-monitor",
+                        "--disable-prompt-on-repost",
+                        "--disable-domain-reliability",
+                        "--disable-component-update",
+                        "--disable-features=InterestBasedFeatureSuggestions",
+                        "--disable-features=AutofillServerCommunication",
+                        "--disable-features=OptimizationHints"
+                    ]
+                )
             
             self.page = await self.browser.new_page()
             
@@ -85,7 +162,7 @@ class TradingViewChartFetcher:
             
             await self.page.set_viewport_size({"width": 1280, "height": 720})
             
-            logger.info("🌐 Browser başlatıldı (optimize edilmiş)")
+            logger.info(f"🌐 Browser başlatıldı ({BROWSER_TYPE} - optimize edilmiş)")
             return True
             
         except Exception as e:
