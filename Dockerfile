@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Sistem paketlerini kur (Playwright için gerekli tüm dependencies)
+# Sistem paketlerini kur (Playwright için temel dependencies)
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -23,13 +23,6 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     libpango-1.0-0 \
     libasound2 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libatspi0 \
-    libdrm2 \
-    libxss1 \
-    libgtk-3-0 \
-    libgdk-pixbuf2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Çalışma dizinini ayarla
@@ -39,8 +32,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Playwright browser'ları kur
-RUN playwright install chromium
+# Playwright browser'ları kur (headless mode)
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN playwright install chromium --with-deps
 
 # Uygulama dosyalarını kopyala
 COPY . .
