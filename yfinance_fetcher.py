@@ -1,7 +1,17 @@
 import yfinance as yf
 import logging
+import os
 from typing import Dict, Optional
 from config import PRICE_VALIDATION_TOLERANCE
+
+# Railway'de cache sorunu için cache dizinini /tmp'ye yönlendir
+try:
+    import appdirs
+    # Cache dizinini geçici klasöre yönlendir
+    appdirs.user_cache_dir = lambda *args: "/tmp"
+    logging.info("✅ Cache dizini /tmp'ye yönlendirildi")
+except ImportError:
+    logging.warning("⚠️ appdirs bulunamadı, cache yönlendirmesi yapılamadı")
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +26,10 @@ class YFinanceFetcher:
     def get_xauusd_price(self) -> Optional[float]:
         """XAUUSD (Altın) fiyatını çeker"""
         try:
+            # Rate limiting için kısa bekleme
+            import time
+            time.sleep(0.5)  # 500ms bekle
+            
             gold = yf.Ticker(self.gold_ticker)
             
             # Önce info metodunu dene
@@ -49,6 +63,10 @@ class YFinanceFetcher:
     def get_usd_rub_rate(self) -> Optional[float]:
         """USD/RUB döviz kurunu çeker"""
         try:
+            # Rate limiting için kısa bekleme
+            import time
+            time.sleep(0.5)  # 500ms bekle
+            
             usd_rub = yf.Ticker(self.usd_rub_ticker)
             
             # Önce info metodunu dene
