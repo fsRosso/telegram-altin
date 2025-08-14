@@ -39,13 +39,10 @@ class FastPriceFetcher:
             "Cache-Control": "max-age=0"
         }
         
-        # Proxy listesi (ücretsiz proxy'ler)
-        self.proxy_list = [
-            None,  # Direkt bağlantı
-            "http://proxy1.example.com:8080",
-            "http://proxy2.example.com:8080"
-        ]
+        # Proxy sistemi (şimdilik devre dışı)
+        self.proxy_list = [None]  # Sadece direkt bağlantı
         self.current_proxy_index = 0
+        self.use_proxy = False  # Proxy kullanımını kapat
         
         # User-Agent rotation
         self.user_agents = [
@@ -57,18 +54,18 @@ class FastPriceFetcher:
         self.current_ua_index = 0
 
     def _rotate_proxy_and_ua(self):
-        """Proxy ve User-Agent'ı değiştir"""
+        """User-Agent'ı değiştir (Proxy şimdilik devre dışı)"""
         # User-Agent rotation
         self.current_ua_index = (self.current_ua_index + 1) % len(self.user_agents)
         new_ua = self.user_agents[self.current_ua_index]
         self.headers["User-Agent"] = new_ua
         
-        # Proxy rotation (her 5 istekte bir)
-        if self.request_count % 5 == 0:
+        # Proxy rotation (şimdilik devre dışı)
+        if self.use_proxy and self.request_count % 5 == 0:
             self.current_proxy_index = (self.current_proxy_index + 1) % len(self.proxy_list)
             print(f"🔄 Proxy değiştirildi: {self.current_proxy_index}")
-        
-        print(f"🔄 User-Agent değiştirildi: {self.current_ua_index}")
+        else:
+            print(f"🔄 User-Agent değiştirildi: {self.current_ua_index}")
 
     def analyze_price_change(self, new_price: float) -> dict:
         if self.last_known_price is None:
