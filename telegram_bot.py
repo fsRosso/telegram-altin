@@ -212,24 +212,28 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             # Son XAURUB fiyatını kaydet
             self.last_xaurub_price = xaurub_result['new_price']
             
-            # yfinance ile gram fiyatı karşılaştırması
+            # yfinance ile gram fiyatı karşılaştırması yap
             yfinance_gram_price = self.yfinance_fetcher.calculate_xaurub_gram_price()
-            comparison_message = ""
+            security_warning = ""
             
             if yfinance_gram_price:
-                # Direkt karşılaştırma (gram vs gram)
-                difference = abs(xaurub_result['current_price'] - yfinance_gram_price)
+                # ProFinance.ru gram fiyatı (zaten gram fiyatı)
+                profinance_gram_price = xaurub_result['current_price']
+                
+                # Fark hesapla
+                difference = abs(profinance_gram_price - yfinance_gram_price)
                 difference_percent = (difference / yfinance_gram_price) * 100
                 
-                if difference_percent > 5.0:  # %5'ten fazla fark
-                    comparison_message = f"\n🚨 UYARI: Fiyat farkı %{difference_percent:.2f}!\n"
-                    comparison_message += f"📊 ProFinance: {xaurub_result['current_price']:.4f} RUB/gram\n"
-                    comparison_message += f"🧮 yfinance: {yfinance_gram_price:.4f} RUB/gram\n"
-                    comparison_message += f"📈 Fark: {difference:.4f} RUB/gram"
+                # Güvenlik kontrolü (%5 tolerans)
+                if difference_percent > 5.0:
+                    security_warning = f"\n🚨 GÜVENLİK UYARISI: Fiyat farkı %{difference_percent:.2f}!\n"
+                    security_warning += f"📊 ProFinance: {profinance_gram_price:.4f} RUB/gram\n"
+                    security_warning += f"🧮 yfinance: {yfinance_gram_price:.4f} RUB/gram\n"
+                    security_warning += f"📈 Fark: {difference:.4f} RUB/gram\n"
                 else:
-                    comparison_message = f"\n✅ Fiyat farkı normal: %{difference_percent:.2f}"
+                    security_warning = f"\n✅ Güvenlik kontrolü: Fark %{difference_percent:.2f} (Normal)\n"
             else:
-                comparison_message = "\n⚠️ yfinance verisi alınamadı - karşılaştırma yapılamadı"
+                security_warning = "\n⚠️ yfinance verisi alınamadı - güvenlik kontrolü yapılamadı\n"
             
             # XAUUSD durumu mesajı
             xauusd_status = ""
@@ -266,7 +270,7 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
 🇷🇺 XAURUB (Ruble):
 📈 Mevcut fiyat: {xaurub_result['current_price']:.2f} RUB
 📊 Yeni fiyat: {xaurub_result['new_price']:.4f} RUB ({change_text})
-📈 {change_desc} miktarı: {xaurub_result['percentage_increase']:.4f} RUB{comparison_message}
+📈 {change_desc} miktarı: {xaurub_result['percentage_increase']:.4f} RUB{security_warning}
 
 🇺🇸 XAUUSD (Dolar):{xauusd_status}
 

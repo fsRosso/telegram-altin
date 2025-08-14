@@ -97,6 +97,24 @@ class YFinanceFetcher:
             logger.error(f"❌ yfinance USD/RUB hatası: {e}")
             return None
     
+    def calculate_xaurub_from_components(self) -> Optional[float]:
+        """XAUUSD ve USD/RUB'den XAURUB hesaplar"""
+        try:
+            xauusd = self.get_xauusd_price()
+            usd_rub = self.get_usd_rub_rate()
+            
+            if xauusd and usd_rub:
+                calculated_xaurub = xauusd * usd_rub
+                logger.info(f"✅ Hesaplanan XAURUB: {calculated_xaurub:.2f} RUB")
+                return calculated_xaurub
+            else:
+                logger.warning("⚠️ XAURUB hesaplanamadı - eksik veri")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ XAURUB hesaplama hatası: {e}")
+            return None
+    
     def calculate_xaurub_gram_price(self) -> Optional[float]:
         """XAUUSD ve USD/RUB'den XAURUB gram fiyatını hesaplar (÷31.1034768)"""
         try:
@@ -115,24 +133,6 @@ class YFinanceFetcher:
                 
         except Exception as e:
             logger.error(f"❌ XAURUB gram fiyatı hesaplama hatası: {e}")
-            return None
-    
-    def calculate_xaurub_from_components(self) -> Optional[float]:
-        """XAUUSD ve USD/RUB'den XAURUB hesaplar (eski metod - geriye uyumluluk için)"""
-        try:
-            xauusd = self.get_xauusd_price()
-            usd_rub = self.get_usd_rub_rate()
-            
-            if xauusd and usd_rub:
-                calculated_xaurub = xauusd * usd_rub
-                logger.info(f"✅ Hesaplanan XAURUB: {calculated_xaurub:.2f} RUB")
-                return calculated_xaurub
-            else:
-                logger.warning("⚠️ XAURUB hesaplanamadı - eksik veri")
-                return None
-                
-        except Exception as e:
-            logger.error(f"❌ XAURUB hesaplama hatası: {e}")
             return None
     
     def validate_xaurub_price(self, direct_xaurub: float, tolerance_percent: float = None) -> Dict:
