@@ -4,6 +4,11 @@ FROM mcr.microsoft.com/playwright/python:v1.48.0-focal
 ENV PATH="/usr/local/bin:$PATH"
 ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages:$PYTHONPATH"
 
+# Python 3.11'i aktif et
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+RUN update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
 # Çalışma dizinini ayarla
 WORKDIR /app
 

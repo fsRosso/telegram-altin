@@ -4,4 +4,4 @@ typing-extensions>=4.10.0
 asyncio
 aiohttp
 requests>=2.31.0
-yfinance>=0.2.65
+yfinance==0.2.18
