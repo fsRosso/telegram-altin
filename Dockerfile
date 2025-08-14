@@ -2,11 +2,15 @@ FROM mcr.microsoft.com/playwright/python:v1.48.0-jammy
 
 # Python path'ini ayarla
 ENV PATH="/usr/local/bin:$PATH"
-ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages:$PYTHONPATH"
 
-# Python 3.11'i aktif et (Ubuntu 22.04'te zaten var)
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+# Mevcut Python sürümlerini kontrol et
+RUN python3 --version
+RUN which python3
+RUN ls -la /usr/bin/python*
+
+# Python 3.10'u aktif et (Ubuntu 22.04'te varsayılan)
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1
 RUN update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # Çalışma dizinini ayarla
