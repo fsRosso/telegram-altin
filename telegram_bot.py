@@ -224,8 +224,8 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
                 difference = abs(profinance_gram_price - yfinance_gram_price)
                 difference_percent = (difference / yfinance_gram_price) * 100
                 
-                # Güvenlik kontrolü (%5 tolerans)
-                if difference_percent > 5.0:
+                # Güvenlik kontrolü (%2 tolerans)
+                if difference_percent > 2.0:
                     security_warning = f"\n🚨 GÜVENLİK UYARISI: Fiyat farkı %{difference_percent:.2f}!\n"
                     security_warning += f"📊 ProFinance: {profinance_gram_price:.4f} RUB/gram\n"
                     security_warning += f"🧮 yfinance: {yfinance_gram_price:.4f} RUB/gram\n"
@@ -241,7 +241,7 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
                 xauusd_difference = abs(xauusd_price - yf_xauusd)
                 xauusd_difference_percent = (xauusd_difference / yf_xauusd) * 100
                 
-                if xauusd_difference_percent > 1.0:  # %1 tolerans XAUUSD için
+                if xauusd_difference_percent > 2.0:  # %2 tolerans XAUUSD için
                     security_warning += f"\n⚠️ XAUUSD UYARISI: Fark %{xauusd_difference_percent:.2f}!\n"
                     security_warning += f"📊 TradingView: ${xauusd_price:.2f}\n"
                     security_warning += f"🧮 yfinance: ${yf_xauusd:.2f}\n"
@@ -295,8 +295,6 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
 🔄 Her işlemde güncel fiyatlar çekiliyor!
 
 💡 İpucu: Bir sayı göndererek XAURUB fiyatını o sayıya bölebilir ve XAUUSD ile karşılaştırabilirsiniz
-
-⚠️ Not: %0.5'ten fazla fiyat değişimlerinde uyarı verilir
             """.strip()
             
             # Bekleme mesajını güncelle
