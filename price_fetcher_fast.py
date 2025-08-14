@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime
 from playwright.async_api import async_playwright
 
-from config import BROWSER_TYPE, PAGE_LOAD_WAIT
+from config import BROWSER_TYPE, PAGE_LOAD_WAIT, CACHE_DURATION
 
 
 class FastPriceFetcher:
@@ -15,11 +15,7 @@ class FastPriceFetcher:
         self.price_history: list[float] = []
         self.max_history_size: int = 10
 
-        # Rate limiting koruması
-        self.last_request_time = 0
-        self.min_request_interval = 10  # 10 saniye minimum bekleme
-        self.request_count = 0
-        self.max_requests_per_hour = 30  # Saatte maksimum 30 istek
+        # ✅ Rate limiting tamamen kaldırıldı - bot sadece kullanıcı istediğinde çalışıyor
 
         # Gelişmiş header (bot tespitini zorlaştır)
         self.headers = {
@@ -53,11 +49,11 @@ class FastPriceFetcher:
         ]
         self.current_ua_index = 0
         
-        # 3 saniyelik akıllı cache sistemi
+        # 30 saniyelik akıllı cache sistemi (3 saniye çok kısa)
         self.cache = {
             "price": None,
             "timestamp": 0,
-            "cache_duration": 3.0  # 3 saniye
+            "cache_duration": CACHE_DURATION  # Config'den al
         }
 
     def _rotate_proxy_and_ua(self):
@@ -90,7 +86,7 @@ class FastPriceFetcher:
         import time
         self.cache["price"] = price
         self.cache["timestamp"] = time.time()
-        print(f"💾 Cache güncellendi: {price:.4f} RUB (3s TTL)")
+        print(f"💾 Cache güncellendi: {price:.4f} RUB ({CACHE_DURATION}s TTL)")
 
     def analyze_price_change(self, new_price: float) -> dict:
         if self.last_known_price is None:
@@ -148,21 +144,7 @@ class FastPriceFetcher:
         }
 
     async def get_current_price(self, browser_type: str = None) -> float:
-        # Rate limiting kontrolü
-        import time
-        current_time = time.time()
-        
-        # Minimum bekleme süresi kontrolü
-        if current_time - self.last_request_time < self.min_request_interval:
-            wait_time = self.min_request_interval - (current_time - self.last_request_time)
-            print(f"⏳ Rate limiting: {wait_time:.1f} saniye bekleniyor...")
-            await asyncio.sleep(wait_time)
-        
-        # Saatlik istek limiti kontrolü
-        if self.request_count >= self.max_requests_per_hour:
-            print("🚨 Saatlik istek limiti aşıldı! 1 saat bekleniyor...")
-            await asyncio.sleep(3600)  # 1 saat bekle
-            self.request_count = 0
+        # ✅ RATE LIMITING TAMAMEN KALDIRILDI!
         
         # Cache kontrolü - 3 saniye içinde tekrar istek varsa cache'den ver
         if self._is_cache_valid():
@@ -176,10 +158,6 @@ class FastPriceFetcher:
 
         print("🚀 TABLO TABANLI FİYAT alıyorum... (", browser_type, ")")
         print("🔗", self.url)
-        
-        # İstek sayacını güncelle
-        self.last_request_time = time.time()
-        self.request_count += 1
         
         # Proxy ve User-Agent rotation
         self._rotate_proxy_and_ua()
@@ -330,7 +308,16 @@ class FastPriceFetcher:
 
     async def get_price_plus_increment_async(self, increment: float = 0.01) -> dict:
         try:
-            current_price = await self.get_current_price(BROWSER_TYPE)
+            # ✅ CACHE KONTROLÜ BURADA YAPILIYOR!
+            # 3 saniye içinde tekrar istek varsa cache'den ver
+            if self._is_cache_valid():
+                print(f"💾 Cache'den veri alınıyor: {self.cache['price']:.4f} RUB")
+                print(f"⏱️ Cache yaşı: {time.time() - self.cache['timestamp']:.1f} saniye")
+                current_price = self.cache["price"]
+            else:
+                # Cache geçersizse yeni veri çek
+                current_price = await self.get_current_price(BROWSER_TYPE)
+            
             if not current_price:
                 raise Exception("Mevcut fiyat alınamadı")
 

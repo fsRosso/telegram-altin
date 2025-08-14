@@ -27,3 +27,6 @@ TIMEZONE = "Europe/Istanbul"  # Türkiye saati
 
 # Fiyat Doğrulama Ayarları
 PRICE_VALIDATION_TOLERANCE = 5.0  # %5 tolerans (anormallik tespiti için)
+
+# Cache Ayarları
+CACHE_DURATION = 3.0  # Cache süresi (saniye) - 3 saniye içinde tekrar istek varsa cache'den ver
