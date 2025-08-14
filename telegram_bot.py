@@ -168,19 +168,29 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             xaurub_info = validation_result["xaurub"]
             xauusd_info = validation_result["xauusd"]
             
+            # Güvenli format için None kontrolü
+            calculated_price = xaurub_info.get('calculated_price')
+            calculated_price_str = f"{calculated_price:.2f}" if calculated_price is not None else "N/A"
+            
+            difference_percent = xaurub_info.get('difference_percent')
+            difference_percent_str = f"%{difference_percent:.2f}" if difference_percent is not None else "N/A"
+            
+            xauusd_difference = xauusd_info.get('difference_percent')
+            xauusd_difference_str = f"%{xauusd_difference:.2f}" if xauusd_difference is not None else "N/A"
+            
             validation_message = f"""
 🔍 **Fiyat Doğrulama Raporu**
 
 🇷🇺 **XAURUB Doğrulama:**
 📊 Direkt Fiyat: {xaurub_info['direct_price']:.2f} RUB
-🧮 Hesaplanan: {xaurub_info.get('calculated_price', 'N/A')} RUB
-📈 Fark: %{xaurub_info.get('difference_percent', 'N/A'):.2f}
+🧮 Hesaplanan: {calculated_price_str} RUB
+📈 Fark: {difference_percent_str}
 ✅ Durum: {xaurub_info['status']}
 
 🇺🇸 **XAUUSD Doğrulama:**
 📊 TradingView: ${xauusd_info['tradingview_price']:.2f}
 🧮 yfinance: ${xauusd_info['yfinance_price']:.2f}
-📈 Fark: %{xauusd_info.get('difference_percent', 'N/A'):.2f}
+📈 Fark: {xauusd_difference_str}
 ✅ Durum: {xauusd_info['status']}
 
 🎯 **Genel Durum:**

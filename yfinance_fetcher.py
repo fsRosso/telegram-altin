@@ -17,14 +17,30 @@ class YFinanceFetcher:
         """XAUUSD (Altın) fiyatını çeker"""
         try:
             gold = yf.Ticker(self.gold_ticker)
-            price = gold.info.get('regularMarketPrice')
             
-            if price:
-                logger.info(f"✅ yfinance XAUUSD: ${price:.2f}")
-                return float(price)
-            else:
-                logger.warning("⚠️ yfinance XAUUSD verisi bulunamadı")
-                return None
+            # Önce info metodunu dene
+            try:
+                info = gold.info
+                if info and 'regularMarketPrice' in info:
+                    price = info['regularMarketPrice']
+                    if price:
+                        logger.info(f"✅ yfinance XAUUSD (info): ${price:.2f}")
+                        return float(price)
+            except Exception as e:
+                logger.warning(f"⚠️ yfinance info hatası: {e}")
+            
+            # info çalışmazsa history metodunu dene
+            try:
+                hist = gold.history(period="1d")
+                if not hist.empty:
+                    price = hist['Close'].iloc[-1]
+                    logger.info(f"✅ yfinance XAUUSD (history): ${price:.2f}")
+                    return float(price)
+            except Exception as e:
+                logger.warning(f"⚠️ yfinance history hatası: {e}")
+            
+            logger.warning("⚠️ yfinance XAUUSD verisi bulunamadı")
+            return None
                 
         except Exception as e:
             logger.error(f"❌ yfinance XAUUSD hatası: {e}")
@@ -34,14 +50,30 @@ class YFinanceFetcher:
         """USD/RUB döviz kurunu çeker"""
         try:
             usd_rub = yf.Ticker(self.usd_rub_ticker)
-            rate = usd_rub.info.get('regularMarketPrice')
             
-            if rate:
-                logger.info(f"✅ yfinance USD/RUB: {rate:.4f}")
-                return float(rate)
-            else:
-                logger.warning("⚠️ yfinance USD/RUB verisi bulunamadı")
-                return None
+            # Önce info metodunu dene
+            try:
+                info = usd_rub.info
+                if info and 'regularMarketPrice' in info:
+                    rate = info['regularMarketPrice']
+                    if rate:
+                        logger.info(f"✅ yfinance USD/RUB (info): {rate:.4f}")
+                        return float(rate)
+            except Exception as e:
+                logger.warning(f"⚠️ yfinance USD/RUB info hatası: {e}")
+            
+            # info çalışmazsa history metodunu dene
+            try:
+                hist = usd_rub.history(period="1d")
+                if not hist.empty:
+                    rate = hist['Close'].iloc[-1]
+                    logger.info(f"✅ yfinance USD/RUB (history): {rate:.4f}")
+                    return float(rate)
+            except Exception as e:
+                logger.warning(f"⚠️ yfinance USD/RUB history hatası: {e}")
+            
+            logger.warning("⚠️ yfinance USD/RUB verisi bulunamadı")
+            return None
                 
         except Exception as e:
             logger.error(f"❌ yfinance USD/RUB hatası: {e}")
