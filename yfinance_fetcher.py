@@ -176,8 +176,16 @@ class YFinanceFetcher:
             gold = yf.Ticker(self.gold_ticker)
             usd_rub = yf.Ticker(self.usd_rub_ticker)
             
-            gold_info = gold.info
-            usd_rub_info = usd_rub.info
+            # Güvenli info alma
+            try:
+                gold_info = gold.info
+            except:
+                gold_info = {}
+                
+            try:
+                usd_rub_info = usd_rub.info
+            except:
+                usd_rub_info = {}
             
             detailed_info = {
                 "gold": {
@@ -218,5 +226,12 @@ if __name__ == "__main__":
     detailed = fetcher.get_detailed_info()
     if "error" not in detailed:
         print(f"\n📊 Detaylı Bilgiler:")
-        print(f"Altın: ${detailed['gold']['price']} (Değişim: {detailed['gold']['change_percent']}%)")
-        print(f"USD/RUB: {detailed['usd_rub']['rate']} (Değişim: {detailed['usd_rub']['change_percent']}%)")
+        gold_price = detailed['gold'].get('price', 'N/A')
+        gold_change = detailed['gold'].get('change_percent', 'N/A')
+        usd_rub_rate = detailed['usd_rub'].get('rate', 'N/A')
+        usd_rub_change = detailed['usd_rub'].get('change_percent', 'N/A')
+        
+        print(f"Altın: ${gold_price} (Değişim: {gold_change}%)")
+        print(f"USD/RUB: {usd_rub_rate} (Değişim: {usd_rub_change}%)")
+    else:
+        print(f"❌ Detaylı bilgi hatası: {detailed['error']}")

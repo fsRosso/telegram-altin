@@ -178,6 +178,10 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             xauusd_difference = xauusd_info.get('difference_percent')
             xauusd_difference_str = f"%{xauusd_difference:.2f}" if xauusd_difference is not None else "N/A"
             
+            # Güvenli status kontrolü
+            xaurub_status = xaurub_info.get('status', '❓ Durum bilinmiyor')
+            xauusd_status = xauusd_info.get('status', '❓ Durum bilinmiyor')
+            
             validation_message = f"""
 🔍 **Fiyat Doğrulama Raporu**
 
@@ -185,13 +189,13 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
 📊 Direkt Fiyat: {xaurub_info['direct_price']:.2f} RUB
 🧮 Hesaplanan: {calculated_price_str} RUB
 📈 Fark: {difference_percent_str}
-✅ Durum: {xaurub_info['status']}
+✅ Durum: {xaurub_status}
 
 🇺🇸 **XAUUSD Doğrulama:**
 📊 TradingView: ${xauusd_info['tradingview_price']:.2f}
 🧮 yfinance: ${xauusd_info['yfinance_price']:.2f}
 📈 Fark: {xauusd_difference_str}
-✅ Durum: {xauusd_info['status']}
+✅ Durum: {xauusd_status}
 
 🎯 **Genel Durum:**
 {validation_result['overall_status']}
