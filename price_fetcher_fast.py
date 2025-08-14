@@ -2,7 +2,8 @@ import asyncio
 from datetime import datetime
 from playwright.async_api import async_playwright
 
-from config import BROWSER_TYPE, PAGE_LOAD_WAIT, CACHE_DURATION
+from config import BROWSER_TYPE, PAGE_LOAD_WAIT, CACHE_DURATION, ENABLE_PROXY
+from proxy_manager import ProxyManager
 
 
 class FastPriceFetcher:
@@ -16,7 +17,11 @@ class FastPriceFetcher:
         self.max_history_size: int = 10
 
         # ✅ Rate limiting tamamen kaldırıldı - bot sadece kullanıcı istediğinde çalışıyor
-
+        
+        # Proxy sistemi
+        self.proxy_manager = ProxyManager() if ENABLE_PROXY else None
+        self.current_proxy = None
+        
         # Gelişmiş header (bot tespitini zorlaştır)
         self.headers = {
             "User-Agent": (
@@ -35,11 +40,6 @@ class FastPriceFetcher:
             "Cache-Control": "max-age=0"
         }
         
-        # Proxy sistemi (şimdilik devre dışı)
-        self.proxy_list = [None]  # Sadece direkt bağlantı
-        self.current_proxy_index = 0
-        self.use_proxy = False  # Proxy kullanımını kapat
-        
         # User-Agent rotation
         self.user_agents = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -57,16 +57,16 @@ class FastPriceFetcher:
         }
 
     def _rotate_proxy_and_ua(self):
-        """User-Agent'ı değiştir (Proxy şimdilik devre dışı)"""
+        """User-Agent ve Proxy rotation"""
         # User-Agent rotation
         self.current_ua_index = (self.current_ua_index + 1) % len(self.user_agents)
         new_ua = self.user_agents[self.current_ua_index]
         self.headers["User-Agent"] = new_ua
         
-        # Proxy rotation (şimdilik devre dışı)
-        if self.use_proxy and self.request_count % 5 == 0:
-            self.current_proxy_index = (self.current_proxy_index + 1) % len(self.proxy_list)
-            print(f"🔄 Proxy değiştirildi: {self.current_proxy_index}")
+        # Proxy rotation (eğer proxy sistemi aktifse)
+        if self.proxy_manager and self.proxy_manager.working_proxies:
+            self.current_proxy = self.proxy_manager.get_next_proxy()
+            print(f"🔄 Proxy değiştirildi: {self.current_proxy['proxy']}")
         else:
             print(f"🔄 User-Agent değiştirildi: {self.current_ua_index}")
     
@@ -184,6 +184,13 @@ class FastPriceFetcher:
                 elif browser_type == "firefox":
                     browser = await p.firefox.launch(headless=True)
                 else:
+                    # Chromium için proxy ayarları
+                    browser_args = browser_args.copy()
+                    if self.current_proxy:
+                        proxy_server = f"{self.current_proxy['ip']}:{self.current_proxy['port']}"
+                        browser_args.extend([f"--proxy-server={proxy_server}"])
+                        print(f"🌐 Proxy kullanılıyor: {proxy_server}")
+                    
                     browser = await p.chromium.launch(
                         headless=True,
                         args=browser_args
@@ -334,6 +341,37 @@ class FastPriceFetcher:
         except Exception as e:
             print("❌ Fiyat hesaplama hatası:", e)
             raise
+
+    async def initialize_proxy_manager(self):
+        """
+        Proxy manager'ı başlatır ve proxy listesini günceller
+        """
+        if not self.proxy_manager:
+            return
+        
+        try:
+            print("🔄 Proxy sistemi başlatılıyor...")
+            
+            # Proxy listesini güncelle
+            success = await self.proxy_manager.update_proxy_list()
+            if not success:
+                print("⚠️ Proxy listesi güncellenemedi, proxy olmadan devam ediliyor")
+                return
+            
+            # Proxy'leri test et
+            working_count = await self.proxy_manager.test_proxies(max_proxies=50)
+            
+            if working_count > 0:
+                print(f"✅ {working_count} çalışan proxy bulundu")
+                # İlk proxy'yi seç
+                self.current_proxy = self.proxy_manager.get_next_proxy()
+                print(f"🌐 Aktif proxy: {self.current_proxy['proxy']}")
+            else:
+                print("⚠️ Çalışan proxy bulunamadı, proxy olmadan devam ediliyor")
+                
+        except Exception as e:
+            print(f"❌ Proxy manager başlatma hatası: {e}")
+            print("⚠️ Proxy olmadan devam ediliyor")
 
 
 if __name__ == "__main__":

@@ -30,3 +30,10 @@ PRICE_VALIDATION_TOLERANCE = 5.0  # %5 tolerans (anormallik tespiti için)
 
 # Cache Ayarları
 CACHE_DURATION = 3.0  # Cache süresi (saniye) - 3 saniye içinde tekrar istek varsa cache'den ver
+
+# Proxy Ayarları
+ENABLE_PROXY = True  # Proxy kullanımını etkinleştir
+PROXY_UPDATE_INTERVAL = 6  # Proxy listesi güncelleme aralığı (saat)
+PROXY_TEST_TIMEOUT = 10  # Proxy test timeout süresi (saniye)
+PROXY_MAX_CONCURRENT_TESTS = 50  # Maksimum eşzamanlı proxy testi
+PROXY_TEST_URL = "http://httpbin.org/ip"  # Proxy test URL'i

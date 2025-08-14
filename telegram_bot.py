@@ -35,6 +35,22 @@ class TelegramBot:
         else:
             logger.info("Instance kontrolü devre dışı")
     
+    def initialize_proxy_system(self):
+        """
+        Proxy sistemini başlatır
+        """
+        try:
+            # Price fetcher'da proxy manager'ı başlat
+            if hasattr(self.price_fetcher, 'proxy_manager') and self.price_fetcher.proxy_manager:
+                print("🔄 Proxy sistemi başlatılıyor...")
+                # Async olarak proxy manager'ı başlat
+                asyncio.create_task(self.price_fetcher.initialize_proxy_manager())
+            else:
+                print("ℹ️ Proxy sistemi devre dışı")
+        except Exception as e:
+            logger.error(f"❌ Proxy sistemi başlatma hatası: {e}")
+            print("⚠️ Proxy olmadan devam ediliyor")
+    
     def check_instance(self):
         """Aynı anda sadece bir bot instance'ının çalışmasını sağlar"""
         if os.path.exists(self.pid_file):
