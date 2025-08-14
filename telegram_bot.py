@@ -235,6 +235,22 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             else:
                 security_warning = "\n⚠️ yfinance verisi alınamadı - güvenlik kontrolü yapılamadı\n"
             
+            # XAUUSD güvenlik kontrolü ekle
+            yf_xauusd = self.yfinance_fetcher.get_xauusd_price()
+            if yf_xauusd:
+                xauusd_difference = abs(xauusd_price - yf_xauusd)
+                xauusd_difference_percent = (xauusd_difference / yf_xauusd) * 100
+                
+                if xauusd_difference_percent > 1.0:  # %1 tolerans XAUUSD için
+                    security_warning += f"\n⚠️ XAUUSD UYARISI: Fark %{xauusd_difference_percent:.2f}!\n"
+                    security_warning += f"📊 TradingView: ${xauusd_price:.2f}\n"
+                    security_warning += f"🧮 yfinance: ${yf_xauusd:.2f}\n"
+                    security_warning += f"📈 Fark: ${xauusd_difference:.2f}\n"
+                else:
+                    security_warning += f"\n✅ XAUUSD kontrolü: Fark %{xauusd_difference_percent:.2f} (Normal)\n"
+            else:
+                security_warning += "\n⚠️ XAUUSD yfinance verisi alınamadı\n"
+            
             # XAUUSD durumu mesajı
             xauusd_status = ""
             if xauusd_price:
