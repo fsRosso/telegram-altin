@@ -178,6 +178,10 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             xauusd_difference = xauusd_info.get('difference_percent')
             xauusd_difference_str = f"%{xauusd_difference:.2f}" if xauusd_difference is not None else "N/A"
             
+            # Güvenli yfinance_price kontrolü
+            yfinance_price = xauusd_info.get('yfinance_price')
+            yfinance_price_str = f"${yfinance_price:.2f}" if yfinance_price is not None else "N/A"
+            
             # Güvenli status kontrolü
             xaurub_status = xaurub_info.get('status', '❓ Durum bilinmiyor')
             xauusd_status = xauusd_info.get('status', '❓ Durum bilinmiyor')
@@ -193,7 +197,7 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
 
 🇺🇸 **XAUUSD Doğrulama:**
 📊 TradingView: ${xauusd_info['tradingview_price']:.2f}
-🧮 yfinance: ${xauusd_info['yfinance_price']:.2f}
+🧮 yfinance: {yfinance_price_str}
 📈 Fark: {xauusd_difference_str}
 ✅ Durum: {xauusd_status}
 
