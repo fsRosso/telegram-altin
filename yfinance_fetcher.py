@@ -97,8 +97,28 @@ class YFinanceFetcher:
             logger.error(f"❌ yfinance USD/RUB hatası: {e}")
             return None
     
+    def calculate_xaurub_gram_price(self) -> Optional[float]:
+        """XAUUSD ve USD/RUB'den XAURUB gram fiyatını hesaplar (÷31.1034768)"""
+        try:
+            xauusd = self.get_xauusd_price()
+            usd_rub = self.get_usd_rub_rate()
+            
+            if xauusd and usd_rub:
+                # XAUUSD × USD/RUB ÷ 31.1034768 = Gram fiyatı
+                calculated_xaurub = xauusd * usd_rub
+                gram_price = calculated_xaurub / 31.1034768
+                logger.info(f"✅ Hesaplanan XAURUB gram fiyatı: {gram_price:.4f} RUB/gram")
+                return gram_price
+            else:
+                logger.warning("⚠️ XAURUB gram fiyatı hesaplanamadı - eksik veri")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ XAURUB gram fiyatı hesaplama hatası: {e}")
+            return None
+    
     def calculate_xaurub_from_components(self) -> Optional[float]:
-        """XAUUSD ve USD/RUB'den XAURUB hesaplar"""
+        """XAUUSD ve USD/RUB'den XAURUB hesaplar (eski metod - geriye uyumluluk için)"""
         try:
             xauusd = self.get_xauusd_price()
             usd_rub = self.get_usd_rub_rate()

@@ -76,7 +76,6 @@ class TelegramBot:
         # Komut işleyicileri
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("help", self.help_command))
-        self.application.add_handler(CommandHandler("validate", self.validate_command))
         
         # Mesaj işleyicileri
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
@@ -109,7 +108,6 @@ Bu bot hem ProFinance.ru'dan XAURUB hem de TradingView'den XAUUSD fiyat verileri
 📝 Komutlar:
 • /start - Botu başlat
 • /help - Bu yardım mesajını göster
-• /validate - Fiyat doğrulama raporu
 
 💰 Fiyat Sorgulama (Yüzde Artış/Azalış):
 • "+0,01" - GÜNCEL XAURUB fiyatı + %0.01 + GÜNCEL XAUUSD fiyatı
@@ -141,77 +139,7 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
         """
         await update.message.reply_text(help_message)
     
-    async def validate_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Validate komutu - fiyat doğrulama yapar"""
-        try:
-            await update.message.reply_text("🔍 Fiyat doğrulama başlatılıyor...")
-            
-            # Mevcut fiyatları al
-            if not self.last_xaurub_price or not self.last_xauusd_price:
-                await update.message.reply_text(
-                    "❌ Henüz fiyat verisi yok!\n"
-                    "Önce bir fiyat sorgusu yapın (örn: +0.01)"
-                )
-                return
-            
-            # Fiyat doğrulama yap
-            validation_result = self.validate_prices(
-                self.last_xaurub_price, 
-                self.last_xauusd_price
-            )
-            
-            if "error" in validation_result:
-                await update.message.reply_text(f"❌ Doğrulama hatası: {validation_result['error']}")
-                return
-            
-            # Sonuç mesajını hazırla
-            xaurub_info = validation_result["xaurub"]
-            xauusd_info = validation_result["xauusd"]
-            
-            # Güvenli format için None kontrolü
-            calculated_price = xaurub_info.get('calculated_price')
-            calculated_price_str = f"{calculated_price:.2f}" if calculated_price is not None else "N/A"
-            
-            difference_percent = xaurub_info.get('difference_percent')
-            difference_percent_str = f"%{difference_percent:.2f}" if difference_percent is not None else "N/A"
-            
-            xauusd_difference = xauusd_info.get('difference_percent')
-            xauusd_difference_str = f"%{xauusd_difference:.2f}" if xauusd_difference is not None else "N/A"
-            
-            # Güvenli yfinance_price kontrolü
-            yfinance_price = xauusd_info.get('yfinance_price')
-            yfinance_price_str = f"${yfinance_price:.2f}" if yfinance_price is not None else "N/A"
-            
-            # Güvenli status kontrolü
-            xaurub_status = xaurub_info.get('status', '❓ Durum bilinmiyor')
-            xauusd_status = xauusd_info.get('status', '❓ Durum bilinmiyor')
-            
-            validation_message = f"""
-🔍 **Fiyat Doğrulama Raporu**
 
-🇷🇺 **XAURUB Doğrulama:**
-📊 Direkt Fiyat: {xaurub_info['direct_price']:.2f} RUB
-🧮 Hesaplanan: {calculated_price_str} RUB
-📈 Fark: {difference_percent_str}
-✅ Durum: {xaurub_status}
-
-🇺🇸 **XAUUSD Doğrulama:**
-📊 TradingView: ${xauusd_info['tradingview_price']:.2f}
-🧮 yfinance: {yfinance_price_str}
-📈 Fark: {xauusd_difference_str}
-✅ Durum: {xauusd_status}
-
-🎯 **Genel Durum:**
-{validation_result['overall_status']}
-
-💡 **Not:** %{PRICE_VALIDATION_TOLERANCE} tolerans ile kontrol edildi
-            """.strip()
-            
-            await update.message.reply_text(validation_message)
-            
-        except Exception as e:
-            logger.error(f"Validate komut hatası: {e}")
-            await update.message.reply_text(f"❌ Doğrulama hatası: {str(e)}")
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Gelen mesajları işler"""
@@ -284,16 +212,24 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             # Son XAURUB fiyatını kaydet
             self.last_xaurub_price = xaurub_result['new_price']
             
-            # Fiyat değişim analizi yap
-            current_price = xaurub_result['current_price']
-            change_analysis = self.price_fetcher.analyze_price_change(current_price)
+            # yfinance ile gram fiyatı karşılaştırması
+            yfinance_gram_price = self.yfinance_fetcher.calculate_xaurub_gram_price()
+            comparison_message = ""
             
-            # Uyarı mesajı hazırla
-            warning_message = ""
-            if change_analysis['is_warning']:
-                warning_message = f"\n⚠️ UYARI: XAURUB fiyatı %{abs(change_analysis['change_percent']):.2f} değişti!\n"
-            if change_analysis['is_abnormal']:
-                warning_message = f"\n🚨 KRİTİK: Anormal XAURUB fiyat değişimi %{abs(change_analysis['change_percent']):.2f}!\n"
+            if yfinance_gram_price:
+                # Direkt karşılaştırma (gram vs gram)
+                difference = abs(xaurub_result['current_price'] - yfinance_gram_price)
+                difference_percent = (difference / yfinance_gram_price) * 100
+                
+                if difference_percent > 5.0:  # %5'ten fazla fark
+                    comparison_message = f"\n🚨 UYARI: Fiyat farkı %{difference_percent:.2f}!\n"
+                    comparison_message += f"📊 ProFinance: {xaurub_result['current_price']:.4f} RUB/gram\n"
+                    comparison_message += f"🧮 yfinance: {yfinance_gram_price:.4f} RUB/gram\n"
+                    comparison_message += f"📈 Fark: {difference:.4f} RUB/gram"
+                else:
+                    comparison_message = f"\n✅ Fiyat farkı normal: %{difference_percent:.2f}"
+            else:
+                comparison_message = "\n⚠️ yfinance verisi alınamadı - karşılaştırma yapılamadı"
             
             # XAUUSD durumu mesajı
             xauusd_status = ""
@@ -330,7 +266,7 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
 🇷🇺 XAURUB (Ruble):
 📈 Mevcut fiyat: {xaurub_result['current_price']:.2f} RUB
 📊 Yeni fiyat: {xaurub_result['new_price']:.4f} RUB ({change_text})
-📈 {change_desc} miktarı: {xaurub_result['percentage_increase']:.4f} RUB{warning_message}
+📈 {change_desc} miktarı: {xaurub_result['percentage_increase']:.4f} RUB{comparison_message}
 
 🇺🇸 XAUUSD (Dolar):{xauusd_status}
 
@@ -450,45 +386,7 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
         from datetime import datetime
         return datetime.now().strftime("%H:%M:%S")
     
-    def validate_prices(self, xaurub_price: float, xauusd_price: float) -> dict:
-        """Fiyatları yfinance ile doğrular"""
-        try:
-            # XAURUB doğrulama
-            xaurub_validation = self.yfinance_fetcher.validate_xaurub_price(
-                xaurub_price, 
-                PRICE_VALIDATION_TOLERANCE
-            )
-            
-            # XAUUSD doğrulama (yfinance vs TradingView)
-            yf_xauusd = self.yfinance_fetcher.get_xauusd_price()
-            if yf_xauusd:
-                xauusd_difference = abs(xauusd_price - yf_xauusd)
-                xauusd_difference_percent = (xauusd_difference / yf_xauusd) * 100
-                xauusd_valid = xauusd_difference_percent <= PRICE_VALIDATION_TOLERANCE
-            else:
-                xauusd_difference_percent = None
-                xauusd_valid = None
-            
-            validation_result = {
-                "xaurub": xaurub_validation,
-                "xauusd": {
-                    "valid": xauusd_valid,
-                    "tradingview_price": xauusd_price,
-                    "yfinance_price": yf_xauusd,
-                    "difference_percent": xauusd_difference_percent,
-                    "status": "✅ Normal" if xauusd_valid else "⚠️ Anormal" if xauusd_valid is False else "❓ Kontrol edilemedi"
-                },
-                "overall_status": "✅ Tüm fiyatlar normal" if (
-                    xaurub_validation.get("valid", False) and 
-                    (xauusd_valid is None or xauusd_valid)
-                ) else "⚠️ Bazı fiyatlarda anormallik tespit edildi"
-            }
-            
-            return validation_result
-            
-        except Exception as e:
-            logger.error(f"❌ Fiyat doğrulama hatası: {e}")
-            return {"error": str(e)}
+
     
     async def error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Hata işleyicisi"""
