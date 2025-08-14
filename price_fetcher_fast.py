@@ -52,6 +52,13 @@ class FastPriceFetcher:
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0"
         ]
         self.current_ua_index = 0
+        
+        # 3 saniyelik akıllı cache sistemi
+        self.cache = {
+            "price": None,
+            "timestamp": 0,
+            "cache_duration": 3.0  # 3 saniye
+        }
 
     def _rotate_proxy_and_ua(self):
         """User-Agent'ı değiştir (Proxy şimdilik devre dışı)"""
@@ -66,6 +73,24 @@ class FastPriceFetcher:
             print(f"🔄 Proxy değiştirildi: {self.current_proxy_index}")
         else:
             print(f"🔄 User-Agent değiştirildi: {self.current_ua_index}")
+    
+    def _is_cache_valid(self) -> bool:
+        """Cache'in geçerli olup olmadığını kontrol et"""
+        import time
+        current_time = time.time()
+        
+        if self.cache["price"] is None:
+            return False
+            
+        time_diff = current_time - self.cache["timestamp"]
+        return time_diff < self.cache["cache_duration"]
+    
+    def _update_cache(self, price: float):
+        """Cache'i güncelle"""
+        import time
+        self.cache["price"] = price
+        self.cache["timestamp"] = time.time()
+        print(f"💾 Cache güncellendi: {price:.4f} RUB (3s TTL)")
 
     def analyze_price_change(self, new_price: float) -> dict:
         if self.last_known_price is None:
@@ -138,6 +163,12 @@ class FastPriceFetcher:
             print("🚨 Saatlik istek limiti aşıldı! 1 saat bekleniyor...")
             await asyncio.sleep(3600)  # 1 saat bekle
             self.request_count = 0
+        
+        # Cache kontrolü - 3 saniye içinde tekrar istek varsa cache'den ver
+        if self._is_cache_valid():
+            print(f"💾 Cache'den veri alınıyor: {self.cache['price']:.4f} RUB")
+            print(f"⏱️ Cache yaşı: {time.time() - self.cache['timestamp']:.1f} saniye")
+            return self.cache["price"]
         
         # Varsayılan motor ayarı
         if browser_type is None:
@@ -285,6 +316,9 @@ class FastPriceFetcher:
                 # Analiz bilgisi (log)
                 analysis = self.analyze_price_change(last_price)
                 print("📊", analysis["message"])
+
+                # Cache'i güncelle
+                self._update_cache(last_price)
 
                 await browser.close()
                 return last_price
