@@ -7,9 +7,12 @@ ENV PATH="/usr/local/bin:$PATH"
 RUN python3 --version
 RUN which python3
 RUN ls -la /usr/bin/python*
-RUN which pip
-RUN which pip3
-RUN ls -la /usr/bin/pip*
+
+# pip'in gerçek konumunu bul
+RUN which pip || echo "pip bulunamadı"
+RUN which pip3 || echo "pip3 bulunamadı"
+RUN find /usr -name "pip*" 2>/dev/null || echo "pip dosyaları bulunamadı"
+RUN find /usr/local -name "pip*" 2>/dev/null || echo "pip dosyaları bulunamadı"
 
 # Python 3.10'u aktif et (Ubuntu 22.04'te varsayılan)
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
