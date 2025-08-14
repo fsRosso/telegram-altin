@@ -3,15 +3,22 @@ FROM mcr.microsoft.com/playwright/python:v1.48.0-jammy
 # Python path'ini ayarla
 ENV PATH="/usr/local/bin:$PATH"
 
-# Mevcut Python sürümlerini kontrol et
+# Mevcut Python ve pip sürümlerini kontrol et
 RUN python3 --version
 RUN which python3
 RUN ls -la /usr/bin/python*
+RUN which pip
+RUN which pip3
+RUN ls -la /usr/bin/pip*
 
 # Python 3.10'u aktif et (Ubuntu 22.04'te varsayılan)
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1
-RUN update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
+# pip alternatiflerini kontrol et ve kur
+RUN pip --version || echo "pip bulunamadı"
+RUN pip3 --version || echo "pip3 bulunamadı"
+RUN python3 -m pip --version || echo "python3 -m pip bulunamadı"
 
 # Çalışma dizinini ayarla
 WORKDIR /app
