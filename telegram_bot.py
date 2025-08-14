@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from price_fetcher_fast import FastPriceFetcher
 from tradingview_chart_fetcher import TradingViewChartFetcher
-from alpha_vantage_fetcher import AlphaVantageFetcher
+from yfinance_fetcher import YFinanceFetcher
 from config import ENABLE_INSTANCE_CONTROL, INSTANCE_CHECK_INTERVAL, PRICE_VALIDATION_TOLERANCE
 import asyncio
 
@@ -22,7 +22,7 @@ class TelegramBot:
         self.token = token
         self.price_fetcher = FastPriceFetcher()
         self.xauusd_fetcher = TradingViewChartFetcher()
-        self.alpha_vantage_fetcher = AlphaVantageFetcher()  # Fiyat doğrulama için
+        self.yfinance_fetcher = YFinanceFetcher()  # Fiyat doğrulama için
         self.application = Application.builder().token(token).build()
         self.last_xaurub_price = None  # Son XAURUB fiyatı
         self.last_xauusd_price = None  # Son XAUUSD fiyatı (hafızada)
@@ -179,7 +179,7 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
 
 🇺🇸 **XAUUSD Doğrulama:**
 📊 TradingView: ${xauusd_info['tradingview_price']:.2f}
-🧮 Alpha Vantage: ${xauusd_info['alpha_vantage_price']:.2f}
+🧮 yfinance: ${xauusd_info['yfinance_price']:.2f}
 📈 Fark: %{xauusd_info.get('difference_percent', 'N/A'):.2f}
 ✅ Durum: {xauusd_info['status']}
 
@@ -433,19 +433,19 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
         return datetime.now().strftime("%H:%M:%S")
     
     def validate_prices(self, xaurub_price: float, xauusd_price: float) -> dict:
-        """Fiyatları Alpha Vantage ile doğrular"""
+        """Fiyatları yfinance ile doğrular"""
         try:
             # XAURUB doğrulama
-            xaurub_validation = self.alpha_vantage_fetcher.validate_xaurub_price(
+            xaurub_validation = self.yfinance_fetcher.validate_xaurub_price(
                 xaurub_price, 
                 PRICE_VALIDATION_TOLERANCE
             )
             
-            # XAUUSD doğrulama (Alpha Vantage vs TradingView)
-            alpha_xauusd = self.alpha_vantage_fetcher.get_xauusd_price()
-            if alpha_xauusd:
-                xauusd_difference = abs(xauusd_price - alpha_xauusd)
-                xauusd_difference_percent = (xauusd_difference / alpha_xauusd) * 100
+            # XAUUSD doğrulama (yfinance vs TradingView)
+            yf_xauusd = self.yfinance_fetcher.get_xauusd_price()
+            if yf_xauusd:
+                xauusd_difference = abs(xauusd_price - yf_xauusd)
+                xauusd_difference_percent = (xauusd_difference / yf_xauusd) * 100
                 xauusd_valid = xauusd_difference_percent <= PRICE_VALIDATION_TOLERANCE
             else:
                 xauusd_difference_percent = None
@@ -456,7 +456,7 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
                 "xauusd": {
                     "valid": xauusd_valid,
                     "tradingview_price": xauusd_price,
-                    "alpha_vantage_price": alpha_xauusd,
+                    "yfinance_price": yf_xauusd,
                     "difference_percent": xauusd_difference_percent,
                     "status": "✅ Normal" if xauusd_valid else "⚠️ Anormal" if xauusd_valid is False else "❓ Kontrol edilemedi"
                 },

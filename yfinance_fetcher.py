@@ -1,71 +1,50 @@
-import requests
+import yfinance as yf
 import logging
-from typing import Dict, Optional, Tuple
-from config import ALPHA_VANTAGE_API_KEY
+from typing import Dict, Optional
+from config import PRICE_VALIDATION_TOLERANCE
 
 logger = logging.getLogger(__name__)
 
-class AlphaVantageFetcher:
-    """Alpha Vantage API ile fiyat çekme ve doğrulama"""
+class YFinanceFetcher:
+    """yfinance ile fiyat çekme ve doğrulama"""
     
-    def __init__(self, api_key: str = None):
-        self.api_key = api_key or ALPHA_VANTAGE_API_KEY
-        self.base_url = "https://www.alphavantage.co/query"
+    def __init__(self):
+        # Ticker sembolleri
+        self.gold_ticker = "GC=F"  # XAUUSD (Altın)
+        self.usd_rub_ticker = "USDRUB=X"  # USD/RUB döviz kuru
         
     def get_xauusd_price(self) -> Optional[float]:
         """XAUUSD (Altın) fiyatını çeker"""
         try:
-            params = {
-                "function": "CURRENCY_EXCHANGE_RATE",
-                "from_currency": "XAU",
-                "to_currency": "USD",
-                "apikey": self.api_key
-            }
+            gold = yf.Ticker(self.gold_ticker)
+            price = gold.info.get('regularMarketPrice')
             
-            response = requests.get(self.base_url, params=params, timeout=10)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if "Realtime Currency Exchange Rate" in data:
-                rate_info = data["Realtime Currency Exchange Rate"]
-                price = float(rate_info["5. Exchange Rate"])
-                logger.info(f"✅ Alpha Vantage XAUUSD: ${price:.2f}")
-                return price
+            if price:
+                logger.info(f"✅ yfinance XAUUSD: ${price:.2f}")
+                return float(price)
             else:
-                logger.warning("⚠️ Alpha Vantage XAUUSD verisi bulunamadı")
+                logger.warning("⚠️ yfinance XAUUSD verisi bulunamadı")
                 return None
                 
         except Exception as e:
-            logger.error(f"❌ Alpha Vantage XAUUSD hatası: {e}")
+            logger.error(f"❌ yfinance XAUUSD hatası: {e}")
             return None
     
     def get_usd_rub_rate(self) -> Optional[float]:
         """USD/RUB döviz kurunu çeker"""
         try:
-            params = {
-                "function": "CURRENCY_EXCHANGE_RATE",
-                "from_currency": "USD",
-                "to_currency": "RUB",
-                "apikey": self.api_key
-            }
+            usd_rub = yf.Ticker(self.usd_rub_ticker)
+            rate = usd_rub.info.get('regularMarketPrice')
             
-            response = requests.get(self.base_url, params=params, timeout=10)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if "Realtime Currency Exchange Rate" in data:
-                rate_info = data["Realtime Currency Exchange Rate"]
-                rate = float(rate_info["5. Exchange Rate"])
-                logger.info(f"✅ Alpha Vantage USD/RUB: {rate:.4f}")
-                return rate
+            if rate:
+                logger.info(f"✅ yfinance USD/RUB: {rate:.4f}")
+                return float(rate)
             else:
-                logger.warning("⚠️ Alpha Vantage USD/RUB verisi bulunamadı")
+                logger.warning("⚠️ yfinance USD/RUB verisi bulunamadı")
                 return None
                 
         except Exception as e:
-            logger.error(f"❌ Alpha Vantage USD/RUB hatası: {e}")
+            logger.error(f"❌ yfinance USD/RUB hatası: {e}")
             return None
     
     def calculate_xaurub_from_components(self) -> Optional[float]:
@@ -86,9 +65,12 @@ class AlphaVantageFetcher:
             logger.error(f"❌ XAURUB hesaplama hatası: {e}")
             return None
     
-    def validate_xaurub_price(self, direct_xaurub: float, tolerance_percent: float = 5.0) -> Dict:
+    def validate_xaurub_price(self, direct_xaurub: float, tolerance_percent: float = None) -> Dict:
         """Direkt XAURUB ile hesaplanan XAURUB'yi karşılaştırır"""
         try:
+            if tolerance_percent is None:
+                tolerance_percent = PRICE_VALIDATION_TOLERANCE
+                
             calculated_xaurub = self.calculate_xaurub_from_components()
             
             if calculated_xaurub is None:
@@ -144,24 +126,65 @@ class AlphaVantageFetcher:
                 "xauusd": xauusd,
                 "usd_rub": usd_rub,
                 "calculated_xaurub": None,
-                "timestamp": None
+                "timestamp": "Şimdi"
             }
             
             if xauusd and usd_rub:
                 status["calculated_xaurub"] = xauusd * usd_rub
-                status["timestamp"] = "Şimdi"
             
             return status
             
         except Exception as e:
             logger.error(f"❌ Piyasa durumu hatası: {e}")
             return {"error": str(e)}
+    
+    def get_detailed_info(self) -> Dict:
+        """Detaylı piyasa bilgileri"""
+        try:
+            gold = yf.Ticker(self.gold_ticker)
+            usd_rub = yf.Ticker(self.usd_rub_ticker)
+            
+            gold_info = gold.info
+            usd_rub_info = usd_rub.info
+            
+            detailed_info = {
+                "gold": {
+                    "price": gold_info.get('regularMarketPrice'),
+                    "change": gold_info.get('regularMarketChange'),
+                    "change_percent": gold_info.get('regularMarketChangePercent'),
+                    "volume": gold_info.get('volume'),
+                    "market_cap": gold_info.get('marketCap'),
+                    "previous_close": gold_info.get('previousClose'),
+                    "open": gold_info.get('regularMarketOpen'),
+                    "day_high": gold_info.get('dayHigh'),
+                    "day_low": gold_info.get('dayLow')
+                },
+                "usd_rub": {
+                    "rate": usd_rub_info.get('regularMarketPrice'),
+                    "change": usd_rub_info.get('regularMarketChange'),
+                    "change_percent": usd_rub_info.get('regularMarketChangePercent'),
+                    "previous_close": usd_rub_info.get('previousClose')
+                }
+            }
+            
+            return detailed_info
+            
+        except Exception as e:
+            logger.error(f"❌ Detaylı bilgi hatası: {e}")
+            return {"error": str(e)}
 
 # Test fonksiyonu
 if __name__ == "__main__":
-    fetcher = AlphaVantageFetcher()
+    fetcher = YFinanceFetcher()
     
-    print("🧪 Alpha Vantage Test:")
+    print("🧪 yfinance Test:")
     print(f"XAUUSD: ${fetcher.get_xauusd_price()}")
     print(f"USD/RUB: {fetcher.get_usd_rub_rate()}")
     print(f"Hesaplanan XAURUB: {fetcher.calculate_xaurub_from_components()}")
+    
+    # Detaylı bilgi testi
+    detailed = fetcher.get_detailed_info()
+    if "error" not in detailed:
+        print(f"\n📊 Detaylı Bilgiler:")
+        print(f"Altın: ${detailed['gold']['price']} (Değişim: {detailed['gold']['change_percent']}%)")
+        print(f"USD/RUB: {detailed['usd_rub']['rate']} (Değişim: {detailed['usd_rub']['change_percent']}%)")

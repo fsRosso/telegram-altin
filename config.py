@@ -25,6 +25,5 @@ INSTANCE_CHECK_INTERVAL = 30   # Instance kontrol aralığı (saniye)
 # Timezone Ayarları
 TIMEZONE = "Europe/Istanbul"  # Türkiye saati
 
-# Alpha Vantage API Ayarları
-ALPHA_VANTAGE_API_KEY = "AYWWV5YY7XBB8Q49"  # Fiyat doğrulama için
+# Fiyat Doğrulama Ayarları
 PRICE_VALIDATION_TOLERANCE = 5.0  # %5 tolerans (anormallik tespiti için)
