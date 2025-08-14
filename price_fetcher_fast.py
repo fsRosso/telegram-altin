@@ -125,10 +125,22 @@ class FastPriceFetcher:
 
                 # Tabloları bul
                 tables = await page.query_selector_all("table")
-                if len(tables) < 4:
-                    raise Exception("Tablo bulunamadı")
-
-                main_table = tables[3]
+                print(f"📊 Bulunan tablo sayısı: {len(tables)}")
+                
+                if len(tables) == 0:
+                    raise Exception("Hiç tablo bulunamadı")
+                
+                # Tablo sayısına göre dinamik seçim
+                if len(tables) >= 4:
+                    main_table = tables[3]  # Eski mantık
+                elif len(tables) >= 3:
+                    main_table = tables[2]  # 3 tablo varsa
+                elif len(tables) >= 2:
+                    main_table = tables[1]  # 2 tablo varsa
+                else:
+                    main_table = tables[0]  # Tek tablo varsa
+                
+                print(f"🎯 Seçilen tablo indeksi: {tables.index(main_table)}")
 
                 # Başlıklar
                 headers = await main_table.query_selector_all("tr:first-child td")
@@ -178,10 +190,12 @@ class FastPriceFetcher:
                 await browser.close()
                 return last_price
             except Exception as e:
-                print("❌ Browser API hatası:", e)
+                print(f"❌ Browser API hatası: {e}")
+                print(f"🔗 URL: {self.url}")
+                print(f"📊 Tablo sayısı: {len(tables) if 'tables' in locals() else 'Bilinmiyor'}")
                 if browser is not None:
                     await browser.close()
-                raise
+                raise Exception(f"Tablo bulunamadı: {e}")
 
     async def get_price_plus_increment_async(self, increment: float = 0.01) -> dict:
         try:
