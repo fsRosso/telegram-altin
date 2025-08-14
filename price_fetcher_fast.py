@@ -38,6 +38,37 @@ class FastPriceFetcher:
             "Sec-Fetch-Site": "none",
             "Cache-Control": "max-age=0"
         }
+        
+        # Proxy listesi (ücretsiz proxy'ler)
+        self.proxy_list = [
+            None,  # Direkt bağlantı
+            "http://proxy1.example.com:8080",
+            "http://proxy2.example.com:8080"
+        ]
+        self.current_proxy_index = 0
+        
+        # User-Agent rotation
+        self.user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0"
+        ]
+        self.current_ua_index = 0
+
+    def _rotate_proxy_and_ua(self):
+        """Proxy ve User-Agent'ı değiştir"""
+        # User-Agent rotation
+        self.current_ua_index = (self.current_ua_index + 1) % len(self.user_agents)
+        new_ua = self.user_agents[self.current_ua_index]
+        self.headers["User-Agent"] = new_ua
+        
+        # Proxy rotation (her 5 istekte bir)
+        if self.request_count % 5 == 0:
+            self.current_proxy_index = (self.current_proxy_index + 1) % len(self.proxy_list)
+            print(f"🔄 Proxy değiştirildi: {self.current_proxy_index}")
+        
+        print(f"🔄 User-Agent değiştirildi: {self.current_ua_index}")
 
     def analyze_price_change(self, new_price: float) -> dict:
         if self.last_known_price is None:
@@ -121,20 +152,60 @@ class FastPriceFetcher:
         # İstek sayacını güncelle
         self.last_request_time = time.time()
         self.request_count += 1
-
+        
+        # Proxy ve User-Agent rotation
+        self._rotate_proxy_and_ua()
+        
         async with async_playwright() as p:
             browser = None
             try:
-                # Browser başlat
+                # Browser başlat (fingerprinting koruması ile)
+                browser_args = [
+                    "--no-sandbox",
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-dev-shm-usage",
+                    "--disable-extensions",
+                    "--disable-plugins",
+                    "--disable-images",
+                    "--disable-javascript",
+                    "--disable-web-security",
+                    "--disable-features=VizDisplayCompositor",
+                    "--disable-ipc-flooding-protection"
+                ]
+                
                 if browser_type == "webkit":
                     browser = await p.webkit.launch(headless=True)
                 elif browser_type == "firefox":
                     browser = await p.firefox.launch(headless=True)
                 else:
-                    browser = await p.chromium.launch(headless=True)
+                    browser = await p.chromium.launch(
+                        headless=True,
+                        args=browser_args
+                    )
 
                 page = await browser.new_page()
                 await page.set_extra_http_headers(self.headers)
+                
+                # Page fingerprinting koruması
+                await page.add_init_script("""
+                    // WebDriver özelliğini gizle
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined,
+                    });
+                    
+                    // Chrome özelliklerini gizle
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5],
+                    });
+                    
+                    // Permissions API'yi gizle
+                    const originalQuery = window.navigator.permissions.query;
+                    window.navigator.permissions.query = (parameters) => (
+                        parameters.name === 'notifications' ?
+                            Promise.resolve({ state: Notification.permission }) :
+                            originalQuery(parameters)
+                    );
+                """)
 
                 # Ağ optimizasyonu: ağır kaynakları engelle
                 async def _route_filter(route, request):
