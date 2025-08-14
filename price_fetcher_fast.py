@@ -159,8 +159,14 @@ class FastPriceFetcher:
         print("🚀 TABLO TABANLI FİYAT alıyorum... (", browser_type, ")")
         print("🔗", self.url)
         
-        # Proxy ve User-Agent rotation
+        # Proxy ve User-Agent rotation (her istekte)
         self._rotate_proxy_and_ua()
+        
+        # Proxy durumunu göster
+        if self.current_proxy:
+            print(f"🌐 Aktif Proxy: {self.current_proxy['proxy']}")
+        else:
+            print("ℹ️ Proxy kullanılmıyor")
         
         async with async_playwright() as p:
             browser = None
@@ -189,7 +195,9 @@ class FastPriceFetcher:
                     if self.current_proxy:
                         proxy_server = f"{self.current_proxy['ip']}:{self.current_proxy['port']}"
                         browser_args.extend([f"--proxy-server={proxy_server}"])
-                        print(f"🌐 Proxy kullanılıyor: {proxy_server}")
+                        print(f"🌐 ProFinance için Proxy kullanılıyor: {proxy_server}")
+                    else:
+                        print("ℹ️ ProFinance için proxy kullanılmıyor")
                     
                     browser = await p.chromium.launch(
                         headless=True,
