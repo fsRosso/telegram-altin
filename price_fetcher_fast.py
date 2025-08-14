@@ -15,12 +15,28 @@ class FastPriceFetcher:
         self.price_history: list[float] = []
         self.max_history_size: int = 10
 
-        # Basit header
+        # Rate limiting koruması
+        self.last_request_time = 0
+        self.min_request_interval = 10  # 10 saniye minimum bekleme
+        self.request_count = 0
+        self.max_requests_per_hour = 30  # Saatte maksimum 30 istek
+
+        # Gelişmiş header (bot tespitini zorlaştır)
         self.headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                 "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Cache-Control": "max-age=0"
         }
 
     def analyze_price_change(self, new_price: float) -> dict:
@@ -79,12 +95,32 @@ class FastPriceFetcher:
         }
 
     async def get_current_price(self, browser_type: str = None) -> float:
+        # Rate limiting kontrolü
+        import time
+        current_time = time.time()
+        
+        # Minimum bekleme süresi kontrolü
+        if current_time - self.last_request_time < self.min_request_interval:
+            wait_time = self.min_request_interval - (current_time - self.last_request_time)
+            print(f"⏳ Rate limiting: {wait_time:.1f} saniye bekleniyor...")
+            await asyncio.sleep(wait_time)
+        
+        # Saatlik istek limiti kontrolü
+        if self.request_count >= self.max_requests_per_hour:
+            print("🚨 Saatlik istek limiti aşıldı! 1 saat bekleniyor...")
+            await asyncio.sleep(3600)  # 1 saat bekle
+            self.request_count = 0
+        
         # Varsayılan motor ayarı
         if browser_type is None:
             browser_type = BROWSER_TYPE
 
         print("🚀 TABLO TABANLI FİYAT alıyorum... (", browser_type, ")")
         print("🔗", self.url)
+        
+        # İstek sayacını güncelle
+        self.last_request_time = time.time()
+        self.request_count += 1
 
         async with async_playwright() as p:
             browser = None
@@ -116,6 +152,13 @@ class FastPriceFetcher:
 
                 print("🔗 Sayfaya gidiyorum...")
                 await page.goto(self.url, wait_until="domcontentloaded", timeout=8000)
+                
+                # Random delay ekle (bot tespitini zorlaştır)
+                import random
+                random_delay = random.uniform(1.0, 3.0)
+                print(f"🎲 Random delay: {random_delay:.1f} saniye")
+                await asyncio.sleep(random_delay)
+                
                 # Tablo görünene kadar bekle (daha stabil)
                 try:
                     await page.wait_for_selector("table", timeout=4000)
