@@ -6,7 +6,8 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from price_fetcher_fast import FastPriceFetcher
 from tradingview_chart_fetcher import TradingViewChartFetcher
-from config import ENABLE_INSTANCE_CONTROL, INSTANCE_CHECK_INTERVAL
+from alpha_vantage_fetcher import AlphaVantageFetcher
+from config import ENABLE_INSTANCE_CONTROL, INSTANCE_CHECK_INTERVAL, PRICE_VALIDATION_TOLERANCE
 import asyncio
 
 # Logging ayarları
@@ -21,6 +22,7 @@ class TelegramBot:
         self.token = token
         self.price_fetcher = FastPriceFetcher()
         self.xauusd_fetcher = TradingViewChartFetcher()
+        self.alpha_vantage_fetcher = AlphaVantageFetcher()  # Fiyat doğrulama için
         self.application = Application.builder().token(token).build()
         self.last_xaurub_price = None  # Son XAURUB fiyatı
         self.last_xauusd_price = None  # Son XAUUSD fiyatı (hafızada)
@@ -74,6 +76,7 @@ class TelegramBot:
         # Komut işleyicileri
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("help", self.help_command))
+        self.application.add_handler(CommandHandler("validate", self.validate_command))
         
         # Mesaj işleyicileri
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
@@ -106,6 +109,7 @@ Bu bot hem ProFinance.ru'dan XAURUB hem de TradingView'den XAUUSD fiyat verileri
 📝 Komutlar:
 • /start - Botu başlat
 • /help - Bu yardım mesajını göster
+• /validate - Fiyat doğrulama raporu
 
 💰 Fiyat Sorgulama (Yüzde Artış/Azalış):
 • "+0,01" - GÜNCEL XAURUB fiyatı + %0.01 + GÜNCEL XAUUSD fiyatı
@@ -136,6 +140,60 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
       Fark: 107.68 - 4.7605 = 102.92 RUB
         """
         await update.message.reply_text(help_message)
+    
+    async def validate_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Validate komutu - fiyat doğrulama yapar"""
+        try:
+            await update.message.reply_text("🔍 Fiyat doğrulama başlatılıyor...")
+            
+            # Mevcut fiyatları al
+            if not self.last_xaurub_price or not self.last_xauusd_price:
+                await update.message.reply_text(
+                    "❌ Henüz fiyat verisi yok!\n"
+                    "Önce bir fiyat sorgusu yapın (örn: +0.01)"
+                )
+                return
+            
+            # Fiyat doğrulama yap
+            validation_result = self.validate_prices(
+                self.last_xaurub_price, 
+                self.last_xauusd_price
+            )
+            
+            if "error" in validation_result:
+                await update.message.reply_text(f"❌ Doğrulama hatası: {validation_result['error']}")
+                return
+            
+            # Sonuç mesajını hazırla
+            xaurub_info = validation_result["xaurub"]
+            xauusd_info = validation_result["xauusd"]
+            
+            validation_message = f"""
+🔍 **Fiyat Doğrulama Raporu**
+
+🇷🇺 **XAURUB Doğrulama:**
+📊 Direkt Fiyat: {xaurub_info['direct_price']:.2f} RUB
+🧮 Hesaplanan: {xaurub_info.get('calculated_price', 'N/A')} RUB
+📈 Fark: %{xaurub_info.get('difference_percent', 'N/A'):.2f}
+✅ Durum: {xaurub_info['status']}
+
+🇺🇸 **XAUUSD Doğrulama:**
+📊 TradingView: ${xauusd_info['tradingview_price']:.2f}
+🧮 Alpha Vantage: ${xauusd_info['alpha_vantage_price']:.2f}
+📈 Fark: %{xauusd_info.get('difference_percent', 'N/A'):.2f}
+✅ Durum: {xauusd_info['status']}
+
+🎯 **Genel Durum:**
+{validation_result['overall_status']}
+
+💡 **Not:** %{PRICE_VALIDATION_TOLERANCE} tolerans ile kontrol edildi
+            """.strip()
+            
+            await update.message.reply_text(validation_message)
+            
+        except Exception as e:
+            logger.error(f"Validate komut hatası: {e}")
+            await update.message.reply_text(f"❌ Doğrulama hatası: {str(e)}")
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Gelen mesajları işler"""
@@ -373,6 +431,46 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
         """Mevcut zamanı formatlar"""
         from datetime import datetime
         return datetime.now().strftime("%H:%M:%S")
+    
+    def validate_prices(self, xaurub_price: float, xauusd_price: float) -> dict:
+        """Fiyatları Alpha Vantage ile doğrular"""
+        try:
+            # XAURUB doğrulama
+            xaurub_validation = self.alpha_vantage_fetcher.validate_xaurub_price(
+                xaurub_price, 
+                PRICE_VALIDATION_TOLERANCE
+            )
+            
+            # XAUUSD doğrulama (Alpha Vantage vs TradingView)
+            alpha_xauusd = self.alpha_vantage_fetcher.get_xauusd_price()
+            if alpha_xauusd:
+                xauusd_difference = abs(xauusd_price - alpha_xauusd)
+                xauusd_difference_percent = (xauusd_difference / alpha_xauusd) * 100
+                xauusd_valid = xauusd_difference_percent <= PRICE_VALIDATION_TOLERANCE
+            else:
+                xauusd_difference_percent = None
+                xauusd_valid = None
+            
+            validation_result = {
+                "xaurub": xaurub_validation,
+                "xauusd": {
+                    "valid": xauusd_valid,
+                    "tradingview_price": xauusd_price,
+                    "alpha_vantage_price": alpha_xauusd,
+                    "difference_percent": xauusd_difference_percent,
+                    "status": "✅ Normal" if xauusd_valid else "⚠️ Anormal" if xauusd_valid is False else "❓ Kontrol edilemedi"
+                },
+                "overall_status": "✅ Tüm fiyatlar normal" if (
+                    xaurub_validation.get("valid", False) and 
+                    (xauusd_valid is None or xauusd_valid)
+                ) else "⚠️ Bazı fiyatlarda anormallik tespit edildi"
+            }
+            
+            return validation_result
+            
+        except Exception as e:
+            logger.error(f"❌ Fiyat doğrulama hatası: {e}")
+            return {"error": str(e)}
     
     async def error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Hata işleyicisi"""
