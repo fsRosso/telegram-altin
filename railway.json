@@ -4,7 +4,7 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "startCommand": "python main.py",
+    "startCommand": "bash startup.sh",
     "restartPolicyType": "ON_FAILURE",
     "numReplicas": 1
   }
