@@ -35,6 +35,8 @@ class TradingViewChartFetcher:
         # Browser ayarları
         self.browser = None
         self.page = None
+        self.playwright = None
+        self.playwright_manager = None
         self.stealth = Stealth()
         
     async def start_browser(self):
@@ -42,7 +44,8 @@ class TradingViewChartFetcher:
         Browser'ı başlat (optimize edilmiş)
         """
         try:
-            self.playwright = await async_playwright().start()
+            self.playwright_manager = self.stealth.use_async(async_playwright())
+            self.playwright = await self.playwright_manager.__aenter__()
             
             # Browser type'ı config'den al
             if BROWSER_TYPE == "webkit":
@@ -119,40 +122,46 @@ class TradingViewChartFetcher:
                 )
             else:
                 # Default: chromium
+                chromium_args = [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-web-security",
+                    "--disable-features=VizDisplayCompositor",
+                    "--disable-extensions",
+                    "--disable-plugins",
+                    "--disable-images",
+                    "--disable-javascript-harmony-shipping",
+                    "--disable-background-timer-throttling",
+                    "--disable-backgrounding-occluded-windows",
+                    "--disable-renderer-backgrounding",
+                    "--disable-features=TranslateUI",
+                    "--disable-ipc-flooding-protection",
+                    "--no-default-browser-check",
+                    "--disable-default-apps",
+                    "--disable-sync",
+                    "--metrics-recording-only",
+                    "--disable-background-networking",
+                    "--disable-component-extensions-with-background-pages",
+                    "--disable-background-mode",
+                    "--disable-client-side-phishing-detection",
+                    "--disable-hang-monitor",
+                    "--disable-prompt-on-repost",
+                    "--disable-domain-reliability",
+                    "--disable-component-update",
+                    "--disable-features=InterestBasedFeatureSuggestions",
+                    "--disable-features=AutofillServerCommunication",
+                    "--disable-features=OptimizationHints",
+                    "--disable-features=IsolateOrigins,site-per-process",
+                    "--disable-blink-features=AutomationControlled",
+                    "--lang=en-US,en",
+                    "--window-size=1280,720",
+                    "--ignore-certificate-errors"
+                ]
                 self.browser = await self.playwright.chromium.launch(
                     headless=True,
-                    args=[
-                        "--no-sandbox",
-                        "--disable-setuid-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--disable-gpu",
-                        "--disable-web-security",
-                        "--disable-features=VizDisplayCompositor",
-                        "--disable-extensions",
-                        "--disable-plugins",
-                        "--disable-images",
-                        "--disable-javascript-harmony-shipping",
-                        "--disable-background-timer-throttling",
-                        "--disable-backgrounding-occluded-windows",
-                        "--disable-renderer-backgrounding",
-                        "--disable-features=TranslateUI",
-                        "--disable-ipc-flooding-protection",
-                        "--no-default-browser-check",
-                        "--disable-default-apps",
-                        "--disable-sync",
-                        "--metrics-recording-only",
-                        "--disable-background-networking",
-                        "--disable-component-extensions-with-background-pages",
-                        "--disable-background-mode",
-                        "--disable-client-side-phishing-detection",
-                        "--disable-hang-monitor",
-                        "--disable-prompt-on-repost",
-                        "--disable-domain-reliability",
-                        "--disable-component-update",
-                        "--disable-features=InterestBasedFeatureSuggestions",
-                        "--disable-features=AutofillServerCommunication",
-                        "--disable-features=OptimizationHints"
-                    ]
+                    args=chromium_args
                 )
             
             self.page = await self.browser.new_page()
@@ -424,10 +433,17 @@ class TradingViewChartFetcher:
         try:
             if self.page:
                 await self.page.close()
+                self.page = None
             if self.browser:
                 await self.browser.close()
-            if hasattr(self, 'playwright'):
+                self.browser = None
+            if self.playwright_manager:
+                await self.playwright_manager.__aexit__(None, None, None)
+                self.playwright_manager = None
+                self.playwright = None
+            elif self.playwright:
                 await self.playwright.stop()
+                self.playwright = None
             
             logger.info("🌐 Browser kapatıldı")
             

@@ -2,10 +2,12 @@ import logging
 import time
 import os
 import signal
+from typing import Optional
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from price_fetcher_fast import FastPriceFetcher
 from tradingview_chart_fetcher import TradingViewChartFetcher
+from tradingview_simple_fetcher import TradingViewSimpleFetcher
 from yfinance_fetcher import YFinanceFetcher
 from config import ENABLE_INSTANCE_CONTROL, INSTANCE_CHECK_INTERVAL, PRICE_VALIDATION_TOLERANCE
 import asyncio
@@ -22,6 +24,7 @@ class TelegramBot:
         self.token = token
         self.price_fetcher = FastPriceFetcher()
         self.xauusd_fetcher = TradingViewChartFetcher()
+        self.xauusd_simple_fetcher = TradingViewSimpleFetcher()
         self.yfinance_fetcher = YFinanceFetcher()  # Fiyat doğrulama için
         self.application = Application.builder().token(token).build()
         self.last_xaurub_price = None  # Son XAURUB fiyatı
@@ -199,21 +202,28 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             
             # XAUUSD için browser başlatma ve fiyat çekme task'ı
             async def get_xauusd_price():
+                browser_started = False
                 try:
-                    if await self.xauusd_fetcher.start_browser():
-                        # Sadece JavaScript-only yöntemi kullan (çok hızlı!)
+                    browser_started = await self.xauusd_fetcher.start_browser()
+                    if browser_started:
                         price = await self.xauusd_fetcher.get_price_javascript_only()
                         
                         if price:
                             await self.xauusd_fetcher.update_price(price)
                             # ✅ XAUUSD fiyatını hafızaya al
                             self.last_xauusd_price = price
-                        await self.xauusd_fetcher.close_browser()
-                        return price
+                            return price
                 except Exception as e:
                     logger.error(f"XAUUSD fiyat çekme hatası: {e}")
-                    return None
-                return None
+                finally:
+                    if browser_started:
+                        await self.xauusd_fetcher.close_browser()
+                
+                logger.warning("⚠️ TradingView chart yöntemi başarısız oldu, simple fetcher'a geçiliyor")
+                fallback_price = await self.get_xauusd_fallback_price()
+                if fallback_price:
+                    self.last_xauusd_price = fallback_price
+                return fallback_price
             
             xauusd_task = get_xauusd_price()
             
@@ -329,6 +339,19 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
                 await update.message.reply_text(error_message)
             
             logger.error(f"Fiyat çekme hatası: {e}")
+    
+    async def get_xauusd_fallback_price(self) -> Optional[float]:
+        """
+        TradingView simple fetcher ile HTTP tabanlı yedek fiyat çek
+        """
+        try:
+            price = await self.xauusd_simple_fetcher.get_best_price()
+            if price:
+                await self.xauusd_simple_fetcher.update_price(price)
+            return price
+        except Exception as e:
+            logger.error(f"XAUUSD fallback fiyat hatası: {e}")
+            return None
     
     async def handle_division_request(self, update: Update, number_text: str):
         """Sayı gönderildiğinde son XAURUB fiyatını böler ve XAUUSD ile karşılaştırır"""

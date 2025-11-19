@@ -232,6 +232,12 @@ class TradingViewSimpleFetcher:
         """
         logger.info("🔍 En iyi fiyat aranıyor...")
         
+        if not self.session or self.session.closed:
+            started = await self.start_session()
+            if not started:
+                logger.error("❌ HTTP session başlatılamadı, fallback fiyat alınamadı")
+                return None
+        
         # 1. Önce search API'dan dene
         price = await self.get_price_from_search()
         if price:
