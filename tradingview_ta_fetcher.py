@@ -6,6 +6,8 @@ Playwright yerine daha hafif ve hızlı bir kütüphane
 import logging
 from tradingview_ta import TA_Handler, Interval
 import asyncio
+import time
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,8 @@ class TradingViewTAFetcher:
     def __init__(self):
         self.last_price = None
         self.handler = None
+        self.last_request_time = None  # Son istek zamanı (rate limit kontrolü)
+        self.min_request_interval = 1.0  # Minimum 1 saniye aralık
         self._initialize_handler()
     
     def _initialize_handler(self):
@@ -49,6 +53,17 @@ class TradingViewTAFetcher:
                     logger.error("Handler başlatılamadı")
                     return None
             
+            # Rate limit kontrolü - Minimum 1 saniye aralık
+            if self.last_request_time:
+                elapsed = time.time() - self.last_request_time
+                if elapsed < self.min_request_interval:
+                    wait_time = self.min_request_interval - elapsed
+                    logger.info(f"⏳ Rate limit koruması: {wait_time:.2f}s bekleniyor...")
+                    time.sleep(wait_time)
+            
+            # Son istek zamanını güncelle
+            self.last_request_time = time.time()
+            
             # TradingView'den analiz verisini al
             analysis = self.handler.get_analysis()
             
@@ -64,7 +79,14 @@ class TradingViewTAFetcher:
                 return None
                 
         except Exception as e:
-            logger.error(f"❌ Fiyat çekme hatası: {e}")
+            error_msg = str(e)
+            
+            # HTTP 429 (Rate Limit) kontrolü
+            if "429" in error_msg or "rate" in error_msg.lower():
+                logger.warning(f"⚠️ Rate limit aşıldı! Playwright'a geçiliyor...")
+            else:
+                logger.error(f"❌ Fiyat çekme hatası: {e}")
+            
             return None
     
     async def get_price_async(self):
