@@ -6,17 +6,10 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from price_fetcher_fast import FastPriceFetcher
 from tradingview_chart_fetcher import TradingViewChartFetcher
+from tradingview_ta_fetcher import TradingViewTAFetcher  # YENİ: tradingview-ta kütüphanesi
 from yfinance_fetcher import YFinanceFetcher
 from config import ENABLE_INSTANCE_CONTROL, INSTANCE_CHECK_INTERVAL, PRICE_VALIDATION_TOLERANCE
 import asyncio
-
-# TradingView tvDatafeed helper (yeni yöntem)
-try:
-    from tradingview_tvdatafeed_helper import get_xauusd_price as get_xauusd_tvdatafeed
-    TVDATAFEED_AVAILABLE = True
-except (ImportError, EnvironmentError) as e:
-    logger.warning(f"tvDatafeed kullanılamıyor: {e}")
-    TVDATAFEED_AVAILABLE = False
 
 # Logging ayarları
 logging.basicConfig(
@@ -29,7 +22,8 @@ class TelegramBot:
     def __init__(self, token):
         self.token = token
         self.price_fetcher = FastPriceFetcher()
-        self.xauusd_fetcher = TradingViewChartFetcher()
+        self.xauusd_fetcher = TradingViewChartFetcher()  # Eski fetcher (yedek)
+        self.xauusd_ta_fetcher = TradingViewTAFetcher()  # YENİ: tradingview-ta ile hızlı fiyat çekme
         self.yfinance_fetcher = YFinanceFetcher()  # Fiyat doğrulama için
         self.application = Application.builder().token(token).build()
         self.last_xaurub_price = None  # Son XAURUB fiyatı
@@ -205,34 +199,29 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             # XAURUB ve XAUUSD fiyat verilerini paralel olarak çek (ASYNC)
             xaurub_task = self.price_fetcher.get_price_plus_increment_async(increment)
             
-            # XAUUSD için fiyat çekme task'ı
+            # XAUUSD için yeni tradingview-ta ile fiyat çekme (ÇOK HIZLI!)
             async def get_xauusd_price():
                 try:
-                    # Önce tvDatafeed yöntemini dene (hızlı, headless)
-                    if TVDATAFEED_AVAILABLE:
-                        try:
-                            # Sync fonksiyonu thread'de çalıştır
-                            loop = asyncio.get_event_loop()
-                            price = await loop.run_in_executor(None, get_xauusd_tvdatafeed)
-                            
-                            if price:
-                                logger.info(f"✅ tvDatafeed ile XAUUSD fiyatı alındı: ${price:.2f}")
-                                self.last_xauusd_price = price
-                                return price
-                        except Exception as e:
-                            logger.warning(f"tvDatafeed hatası, Playwright'a geçiliyor: {e}")
+                    # Önce tradingview-ta ile dene (Browser açmadan, çok hızlı!)
+                    logger.info("🚀 TradingView TA ile fiyat çekiliyor (browser olmadan)...")
+                    price = await self.xauusd_ta_fetcher.get_price_async()
                     
-                    # Fallback: Playwright ile fiyat çek
+                    if price:
+                        logger.info(f"✅ TradingView TA'dan fiyat alındı: ${price:.2f}")
+                        self.last_xauusd_price = price
+                        return price
+                    
+                    # Başarısız olursa eski Playwright yöntemine geç
+                    logger.warning("⚠️ TradingView TA başarısız, Playwright ile deneniyor...")
                     if await self.xauusd_fetcher.start_browser():
-                        # Sadece JavaScript-only yöntemi kullan (çok hızlı!)
                         price = await self.xauusd_fetcher.get_price_javascript_only()
                         
                         if price:
                             await self.xauusd_fetcher.update_price(price)
-                            # ✅ XAUUSD fiyatını hafızaya al
                             self.last_xauusd_price = price
                         await self.xauusd_fetcher.close_browser()
                         return price
+                        
                 except Exception as e:
                     logger.error(f"XAUUSD fiyat çekme hatası: {e}")
                     return None

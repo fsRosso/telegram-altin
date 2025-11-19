@@ -5,11 +5,10 @@
 ## 🚀 Özellikler
 
 - **XAURUB Fiyat Takibi**: ProFinance.ru'dan güncel fiyatlar
-- **XAUUSD Fiyat Takibi**: TradingView'den güncel fiyatlar (tvDatafeed + Playwright fallback)
+- **XAUUSD Fiyat Takibi**: TradingView'den güncel fiyatlar
 - **Yüzde Hesaplama**: +0.01, -0.05 gibi yüzde artış/azalış hesaplamaları
 - **Bölme İşlemleri**: XAURUB fiyatını belirli sayılara bölme
 - **Instance Kontrolü**: Aynı anda sadece bir bot instance'ı çalışır
-- **Hızlı Fiyat Çekme**: tvDatafeed ile headless WebSocket bağlantısı (Playwright fallback)
 
 ## 🛠️ Kurulum
 
@@ -32,22 +31,17 @@ python main.py
 
 ### Railway Deployment
 
-1. **Railway'de GitHub Repo'yu Bağla:**
-   - https://railway.app/ → "New Project" → "Deploy from GitHub repo"
-   - `fsRosso/telegram-altin` repo'sunu seç
+1. **Railway CLI kurulumu:**
+```bash
+npm install -g @railway/cli
+```
 
-2. **Environment Variables Ekle:**
-   ```
-   BOT_TOKEN_DIFFERENT = YOUR_TELEGRAM_BOT_TOKEN
-   TV_USERNAME = YOUR_TRADINGVIEW_USERNAME  (opsiyonel)
-   TV_PASSWORD = YOUR_TRADINGVIEW_PASSWORD  (opsiyonel)
-   ```
-   
-   **Not:** TV_USERNAME ve TV_PASSWORD eklenmezse otomatik olarak Playwright fallback kullanılır.
-
-3. **Deploy:**
-   - Railway otomatik olarak deploy edecek
-   - Logs'tan durumu takip edin
+2. **Projeyi Railway'e yükle:**
+```bash
+railway login
+railway init
+railway up
+```
 
 ## 🔧 Sorun Giderme
 
