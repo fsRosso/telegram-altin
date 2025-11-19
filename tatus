@@ -1,0 +1,5 @@
+[33m420cd9b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Yeni API token güncellendi ve Railway ayarları düzeltildi
+[33me8607dd[m Playwright 1.48.0 sürümüne güncellendi
+[33m009e00d[m Python 3.9 uyumluluğu için syntax düzeltildi, Dockerfile güncellendi
+[33mee779f7[m Playwright resmi image kullanılıyor, dependencies sorunu çözüldü
+[33mea15a13[m Yeni bot token güncellendi
