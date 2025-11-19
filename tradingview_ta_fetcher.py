@@ -23,13 +23,14 @@ class TradingViewTAFetcher:
         """TradingView handler'ı başlatır"""
         try:
             # XAUUSD için TradingView handler
+            # Önemli: OANDA XAUUSD için screener='cfd' olmalı!
             self.handler = TA_Handler(
                 symbol="XAUUSD",
-                screener="forex",  # Forex piyasası için
-                exchange="FX_IDC",  # TradingView'deki XAUUSD exchange'i
+                screener="cfd",  # OANDA XAUUSD için 'cfd' screener gerekli
+                exchange="OANDA",  # OANDA forex broker
                 interval=Interval.INTERVAL_1_MINUTE  # 1 dakikalık veri
             )
-            logger.info("✅ TradingView TA Handler başlatıldı")
+            logger.info("✅ TradingView TA Handler başlatıldı (OANDA:XAUUSD)")
         except Exception as e:
             logger.error(f"❌ Handler başlatma hatası: {e}")
             self.handler = None
