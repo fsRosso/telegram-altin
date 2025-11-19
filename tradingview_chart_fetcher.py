@@ -7,7 +7,7 @@ import logging
 from playwright.async_api import async_playwright
 import re
 from config import BROWSER_TYPE
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 
 # Logging ayarları
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +35,7 @@ class TradingViewChartFetcher:
         # Browser ayarları
         self.browser = None
         self.page = None
+        self.stealth = Stealth()
         
     async def start_browser(self):
         """
@@ -155,7 +156,7 @@ class TradingViewChartFetcher:
                 )
             
             self.page = await self.browser.new_page()
-            await stealth_async(self.page)
+            await self.stealth.apply_stealth_async(self.page)
             
             # User agent ve viewport ayarla
             await self.page.set_extra_http_headers({
