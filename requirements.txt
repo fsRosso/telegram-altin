@@ -7,4 +7,4 @@ aiohttp>=3.8.0
 requests>=2.31.0
 yfinance>=0.2.54
 appdirs>=1.4.4
-tvdatafeed @ git+https://github.com/StreamAlpha/tvdatafeed.git@master
+tvdatafeed>=1.2.1
