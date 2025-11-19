@@ -7,6 +7,10 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from price_fetcher_fast import FastPriceFetcher
 from tradingview_chart_fetcher import TradingViewChartFetcher
 from yfinance_fetcher import YFinanceFetcher
+from tradingview_tvdatafeed_helper import (
+    get_xauusd_price as get_tv_xauusd_price,
+    is_tv_client_ready,
+)
 from config import ENABLE_INSTANCE_CONTROL, INSTANCE_CHECK_INTERVAL, PRICE_VALIDATION_TOLERANCE
 import asyncio
 
@@ -199,14 +203,25 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             
             # XAUUSD için browser başlatma ve fiyat çekme task'ı
             async def get_xauusd_price():
+                # 1) tvDatafeed ile dene
+                if is_tv_client_ready():
+                    try:
+                        price = await asyncio.to_thread(get_tv_xauusd_price)
+                        if price:
+                            logger.info("💎 XAUUSD tvDatafeed üzerinden çekildi")
+                            self.last_xauusd_price = price
+                            await self.xauusd_fetcher.update_price(price)
+                            return price
+                    except Exception as e:
+                        logger.warning(f"tvDatafeed XAUUSD hatası: {e}")
+                
+                # 2) Playwright fallback
                 try:
                     if await self.xauusd_fetcher.start_browser():
-                        # Sadece JavaScript-only yöntemi kullan (çok hızlı!)
                         price = await self.xauusd_fetcher.get_price_javascript_only()
                         
                         if price:
                             await self.xauusd_fetcher.update_price(price)
-                            # ✅ XAUUSD fiyatını hafızaya al
                             self.last_xauusd_price = price
                         await self.xauusd_fetcher.close_browser()
                         return price
