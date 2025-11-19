@@ -8,6 +8,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from price_fetcher_fast import FastPriceFetcher
 from tradingview_chart_fetcher import TradingViewChartFetcher
 from tradingview_simple_fetcher import TradingViewSimpleFetcher
+from tradingview_websocket_fetcher import TradingViewWebSocketFetcher
 from yfinance_fetcher import YFinanceFetcher
 from config import ENABLE_INSTANCE_CONTROL, INSTANCE_CHECK_INTERVAL, PRICE_VALIDATION_TOLERANCE
 import asyncio
@@ -25,6 +26,7 @@ class TelegramBot:
         self.price_fetcher = FastPriceFetcher()
         self.xauusd_fetcher = TradingViewChartFetcher()
         self.xauusd_simple_fetcher = TradingViewSimpleFetcher()
+        self.xauusd_ws_fetcher = TradingViewWebSocketFetcher()
         self.yfinance_fetcher = YFinanceFetcher()  # Fiyat doğrulama için
         self.application = Application.builder().token(token).build()
         self.last_xaurub_price = None  # Son XAURUB fiyatı
@@ -342,15 +344,32 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
     
     async def get_xauusd_fallback_price(self) -> Optional[float]:
         """
-        TradingView simple fetcher ile HTTP tabanlı yedek fiyat çek
+        TradingView HTTP + websocket tabanlı yedek fiyat çek
         """
         try:
             price = await self.xauusd_simple_fetcher.get_best_price()
             if price:
                 await self.xauusd_simple_fetcher.update_price(price)
+                return price
+        except Exception as e:
+            logger.error(f"XAUUSD simple fallback hatası: {e}")
+        
+        ws_price = await self.get_xauusd_ws_price()
+        if ws_price:
+            return ws_price
+        
+        return None
+
+    async def get_xauusd_ws_price(self) -> Optional[float]:
+        """
+        tvDatafeed tabanlı websocket fallback
+        """
+        try:
+            loop = asyncio.get_running_loop()
+            price = await loop.run_in_executor(None, self.xauusd_ws_fetcher.get_current_price)
             return price
         except Exception as e:
-            logger.error(f"XAUUSD fallback fiyat hatası: {e}")
+            logger.error(f"XAUUSD websocket fallback hatası: {e}")
             return None
     
     async def handle_division_request(self, update: Update, number_text: str):

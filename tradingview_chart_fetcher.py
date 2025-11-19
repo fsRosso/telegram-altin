@@ -459,56 +459,164 @@ class TradingViewChartFetcher:
                 logger.error("❌ Browser sayfası hazır değil")
                 return None
             
-            logger.info(f"⚡ JavaScript-only fiyat çekme başlatıldı...")
+            logger.info("⚡ TradingView fiyatı için tarayıcı tabı hazırlanıyor...")
+            await self.page.goto(self.xauusd_url, wait_until="networkidle", timeout=15000)
+            await asyncio.sleep(2.5)
             
-            # Önce TradingView sayfasına git ama sadece temel yapıyı yükle
-            await self.page.goto(self.xauusd_url, wait_until="domcontentloaded", timeout=8000)
+            if await self._is_captcha_displayed():
+                logger.warning("🚧 TradingView CAPTCHA ekranı görüldü")
+                return None
             
-            # Sayfa tam yüklenmesi için bekle
-            await asyncio.sleep(3)
-            
-            # Sayfa metnini Python tarafında al
-            page_text = await self.page.evaluate("() => document.body.innerText")
-            logger.info(f"📄 Sayfa metni uzunluğu: {len(page_text)}")
-            logger.info(f"📄 Sayfa metni (ilk 1000 karakter): {page_text[:1000]}")
-            
-            # XAUUSD fiyatını bul
-            import re
-            xauusd_pattern = r'XAUUSD\s*([\d,]+(?:\.\d+)?)\s*USD'
-            xauusd_match = re.search(xauusd_pattern, page_text)
-            
-            if xauusd_match:
-                price_str = xauusd_match.group(1)
-                price = float(price_str.replace(',', ''))
-                logger.info(f"✅ XAUUSD pattern ile fiyat bulundu: ${price:.2f}")
+            price = await self._extract_price_from_next_data()
+            if price:
+                logger.info(f"✅ XAUUSD fiyatı __NEXT_DATA__ üzerinden bulundu: ${price:.2f}")
                 return price
             
-            # Alternatif: Tüm USD fiyatları
-            usd_pattern = r'([\d,]+(?:\.\d+)?)\s*USD'
-            usd_matches = re.findall(usd_pattern, page_text)
-            logger.info(f"🔍 USD pattern ile bulunanlar: {usd_matches}")
+            price = await self._extract_price_from_dom_selectors()
+            if price:
+                logger.info(f"✅ XAUUSD fiyatı DOM selector ile bulundu: ${price:.2f}")
+                return price
             
-            if usd_matches:
-                # En mantıklı fiyatı bul
-                prices = []
-                for match in usd_matches:
-                    try:
-                        price = float(match.replace(',', ''))
-                        if 2000 <= price <= 5000:  # Altın fiyat aralığı
-                            prices.append(price)
-                    except ValueError:
-                        continue
-                
-                if prices:
-                    best_price = max(prices)
-                    logger.info(f"✅ USD pattern ile en iyi fiyat bulundu: ${best_price:.2f}")
-                    return best_price
+            price = await self._extract_price_from_text()
+            if price:
+                logger.info(f"✅ XAUUSD fiyatı metin analizi ile bulundu: ${price:.2f}")
+                return price
             
-            logger.warning("⚠️ JavaScript-only fiyat bulunamadı")
+            logger.warning("⚠️ TradingView tabında fiyat bulunamadı")
             return None
             
         except Exception as e:
-            logger.error(f"❌ JavaScript-only fiyat çekme hatası: {e}")
+            logger.error(f"❌ TradingView tabından fiyat çekme hatası: {e}")
+            return None
+
+    async def _is_captcha_displayed(self) -> bool:
+        try:
+            page_text = await self.page.evaluate("() => document.body.innerText.toLowerCase()")
+            captcha_keywords = ["i am not a robot", "robot değil", "verify you are human", "captcha"]
+            return any(keyword in page_text for keyword in captcha_keywords)
+        except Exception:
+            return False
+
+    async def _extract_price_from_next_data(self) -> Optional[float]:
+        try:
+            script = await self.page.query_selector('script[id="__NEXT_DATA__"], script[type="application/json"][data-state]')
+            if not script:
+                return None
+            
+            content = await script.inner_text()
+            json_data = json.loads(content)
+            price = self._search_price_in_json(json_data)
+            return price
+        except Exception as e:
+            logger.debug(f"__NEXT_DATA__ parse hatası: {e}")
+            return None
+
+    async def _extract_price_from_dom_selectors(self) -> Optional[float]:
+        selectors = [
+            '[data-symbol-name="OANDA:XAUUSD"] [data-role="price"]',
+            '[data-symbol-name="XAUUSD"] [data-role="price"]',
+            '.tv-symbol-price-quote__value',
+            '[class*="last"] span',
+            '[data-name="price"]',
+        ]
+        
+        try:
+            text_value = await self.page.evaluate(
+                """(selectors) => {
+                    const sanitize = (text) => {
+                        if (!text) return null;
+                        const match = text.replace(/\\s+/g, '').match(/\\d{3,5}(?:[.,]\\d{1,3})?/);
+                        return match ? match[0] : null;
+                    };
+                    for (const selector of selectors) {
+                        const el = document.querySelector(selector);
+                        if (el) {
+                            const value = sanitize(el.textContent);
+                            if (value) {
+                                return value;
+                            }
+                        }
+                    }
+                    return null;
+                }""",
+                selectors,
+            )
+            
+            if text_value:
+                return self._sanitize_price_string(text_value)
+            return None
+        except Exception as e:
+            logger.debug(f"DOM selector fiyat çıkartma hatası: {e}")
+            return None
+
+    async def _extract_price_from_text(self) -> Optional[float]:
+        try:
+            page_text = await self.page.evaluate("() => document.body.innerText")
+            logger.info(f"📄 Sayfa metni uzunluğu: {len(page_text)}")
+            
+            patterns = [
+                r'XAUUSD[^\\d]*(\\d{3,5}(?:[.,]\\d{1,3})?)',
+                r'(\\d{3,5}(?:[.,]\\d{1,3})?)\\s*USD',
+                r'price[^\\d]*(\\d{3,5}(?:[.,]\\d{1,3})?)',
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, page_text, re.IGNORECASE)
+                if match:
+                    price = self._sanitize_price_string(match.group(1))
+                    if price:
+                        return price
+            
+            return None
+        except Exception as e:
+            logger.debug(f"Metin analizi hatası: {e}")
+            return None
+
+    def _search_price_in_json(self, data: Any) -> Optional[float]:
+        price_keys = ["price", "lastPrice", "last", "lp", "close", "value"]
+        target_symbols = {"XAUUSD", "OANDA:XAUUSD", "FOREXCOM:XAUUSD"}
+        
+        try:
+            if isinstance(data, dict):
+                symbol = data.get("symbol") or data.get("symbolName") or data.get("ticker")
+                if symbol and symbol.upper() in target_symbols:
+                    for key in price_keys:
+                        if key in data:
+                            price = self._sanitize_price_string(data[key])
+                            if price:
+                                return price
+                
+                for value in data.values():
+                    price = self._search_price_in_json(value)
+                    if price:
+                        return price
+            
+            elif isinstance(data, list):
+                for item in data:
+                    price = self._search_price_in_json(item)
+                    if price:
+                        return price
+        except Exception as e:
+            logger.debug(f"JSON'dan fiyat arama hatası: {e}")
+        
+        return None
+
+    def _sanitize_price_string(self, value: Any) -> Optional[float]:
+        try:
+            if value is None:
+                return None
+            if isinstance(value, (int, float)):
+                return float(value)
+            text = str(value)
+            match = re.search(r'(\\d{3,5}(?:[.,]\\d{1,3})?)', text)
+            if not match:
+                return None
+            price_str = match.group(1).replace(',', '')
+            price = float(price_str)
+            if 1000 <= price <= 4000:
+                return price
+            return None
+        except Exception:
             return None
 
     def analyze_xauusd_price_change(self, new_price: float) -> dict:
