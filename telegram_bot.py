@@ -10,6 +10,14 @@ from yfinance_fetcher import YFinanceFetcher
 from config import ENABLE_INSTANCE_CONTROL, INSTANCE_CHECK_INTERVAL, PRICE_VALIDATION_TOLERANCE
 import asyncio
 
+# TradingView tvDatafeed helper (yeni yöntem)
+try:
+    from tradingview_tvdatafeed_helper import get_xauusd_price as get_xauusd_tvdatafeed
+    TVDATAFEED_AVAILABLE = True
+except (ImportError, EnvironmentError) as e:
+    logger.warning(f"tvDatafeed kullanılamıyor: {e}")
+    TVDATAFEED_AVAILABLE = False
+
 # Logging ayarları
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -197,9 +205,24 @@ Bot: XAURUB ÷ 25 = 4.7605 RUB
             # XAURUB ve XAUUSD fiyat verilerini paralel olarak çek (ASYNC)
             xaurub_task = self.price_fetcher.get_price_plus_increment_async(increment)
             
-            # XAUUSD için browser başlatma ve fiyat çekme task'ı
+            # XAUUSD için fiyat çekme task'ı
             async def get_xauusd_price():
                 try:
+                    # Önce tvDatafeed yöntemini dene (hızlı, headless)
+                    if TVDATAFEED_AVAILABLE:
+                        try:
+                            # Sync fonksiyonu thread'de çalıştır
+                            loop = asyncio.get_event_loop()
+                            price = await loop.run_in_executor(None, get_xauusd_tvdatafeed)
+                            
+                            if price:
+                                logger.info(f"✅ tvDatafeed ile XAUUSD fiyatı alındı: ${price:.2f}")
+                                self.last_xauusd_price = price
+                                return price
+                        except Exception as e:
+                            logger.warning(f"tvDatafeed hatası, Playwright'a geçiliyor: {e}")
+                    
+                    # Fallback: Playwright ile fiyat çek
                     if await self.xauusd_fetcher.start_browser():
                         # Sadece JavaScript-only yöntemi kullan (çok hızlı!)
                         price = await self.xauusd_fetcher.get_price_javascript_only()
