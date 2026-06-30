@@ -258,45 +258,54 @@ class FastPriceFetcher:
                     pass
                 await asyncio.sleep(PAGE_LOAD_WAIT)
 
-                # Tabloları bul
+                # Tabloları bul - sayfa yapısı değişse de çalışacak şekilde tüm tabloları tara
                 tables = await page.query_selector_all("table")
-                if len(tables) < 4:
+                print(f"📊 Sayfada {len(tables)} tablo bulundu")
+                if not tables:
                     raise Exception("Tablo bulunamadı")
 
-                main_table = tables[3]
+                # Tüm tabloları tara, sayısal fiyat içeren hücreyi ara (XAURUB ~50-500 arası)
+                main_table = None
+                bid = ask = last = time_txt = ""
+                cells = []
 
-                # Başlıklar
+                for i, tbl in enumerate(tables):
+                    rows = await tbl.query_selector_all("tr")
+                    for row in rows:
+                        tds = await row.query_selector_all("td")
+                        if len(tds) < 3:
+                            continue
+                        texts = [(await td.inner_text()).strip() for td in tds]
+                        for j, txt in enumerate(texts[:4]):
+                            try:
+                                val = float(txt.replace(",", ".").replace(" ", ""))
+                                if 50 < val < 500:
+                                    main_table = tbl
+                                    bid = texts[0] if len(texts) > 0 else ""
+                                    ask = texts[1] if len(texts) > 1 else ""
+                                    last = texts[j]
+                                    time_txt = texts[j + 1] if len(texts) > j + 1 else ""
+                                    cells = tds
+                                    print(f"✅ Fiyat tablosu bulundu: tablo #{i}, hücre #{j}, değer={val}")
+                                    break
+                            except ValueError:
+                                continue
+                        if main_table:
+                            break
+                    if main_table:
+                        break
+
+                if not main_table or not last:
+                    raise Exception("Tablo bulunamadı")
+
+                # Başlıklar (log için)
                 headers = await main_table.query_selector_all("tr:first-child td")
                 header_texts = [
                     (await h.inner_text()).strip() for h in headers
                 ] if headers else []
                 print("📋 Tablo başlıkları:", header_texts)
 
-                # Veri satırları
-                data_rows = await main_table.query_selector_all("tr:not(:first-child)")
-                if not data_rows:
-                    raise Exception("Veri satırları bulunamadı")
-
-                # İlk satır
-                first_data_row = data_rows[0]
-                cells = await first_data_row.query_selector_all("td")
-                if len(cells) < 3:
-                    raise Exception("Yetersiz hücre")
-
-                bid = await cells[0].inner_text()
-                ask = await cells[1].inner_text()
-                last = await cells[2].inner_text()
-                time_txt = await cells[3].inner_text() if len(cells) > 3 else ""
-
-                if not last or not last.strip():
-                    print("⚠️ Last değeri boş, bir sonraki satırı kontrol ediyorum...")
-                    if len(data_rows) > 1:
-                        next_cells = await data_rows[1].query_selector_all("td")
-                        if len(next_cells) >= 3:
-                            last = await next_cells[2].inner_text()
-                            time_txt = await next_cells[3].inner_text() if len(next_cells) > 3 else ""
-
-                last_price = float(last.strip()) if last and last.strip() else None
+                last_price = float(last.strip().replace(",", ".").replace(" ", "")) if last and last.strip() else None
                 if not last_price or last_price <= 0:
                     raise Exception("Geçersiz fiyat")
 
