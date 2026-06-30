@@ -226,7 +226,11 @@ class FastPriceFetcher:
                     });
                     
                     // Permissions API'yi gizle
-                    const originalQuery = window.navigator.permissions.query;
+                    // NOT: orijinal query'yi navigator.permissions'a bind etmezsek
+                    // "Illegal invocation" hatası firlatip sayfa JS'ini bozuyor.
+                    const originalQuery = window.navigator.permissions.query.bind(
+                        window.navigator.permissions
+                    );
                     window.navigator.permissions.query = (parameters) => (
                         parameters.name === 'notifications' ?
                             Promise.resolve({ state: Notification.permission }) :
