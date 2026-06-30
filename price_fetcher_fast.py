@@ -299,7 +299,10 @@ class FastPriceFetcher:
                     tables = await page.query_selector_all("table")
                     table_count = len(tables)
 
-                    # Tüm tabloları tara, sayısal fiyat içeren hücreyi ara (XAURUB ~50-10000 arası)
+                    # Tüm tabloları tara, sayısal fiyat içeren hücreyi ara.
+                    # XAURUB gram fiyatı ~10200 RUB (binlerde) ve yükseldikçe artar;
+                    # alt sınır 1000 -> chart boyutları (728/597/400) gibi küçük
+                    # sayıları ele; üst sınır 1000000 -> fiyat artışına bol pay.
                     for i, tbl in enumerate(tables):
                         rows = await tbl.query_selector_all("tr")
                         for row in rows:
@@ -310,7 +313,7 @@ class FastPriceFetcher:
                             for j, txt in enumerate(texts[:4]):
                                 try:
                                     val = float(txt.replace(",", ".").replace(" ", ""))
-                                    if 50 < val < 10000:
+                                    if 1000 < val < 1000000:
                                         main_table = tbl
                                         bid = texts[0] if len(texts) > 0 else ""
                                         ask = texts[1] if len(texts) > 1 else ""
