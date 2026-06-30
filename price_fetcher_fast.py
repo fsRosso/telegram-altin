@@ -1,9 +1,13 @@
 import asyncio
+import logging
+import time
 from datetime import datetime
 from playwright.async_api import async_playwright
 
 from config import BROWSER_TYPE, PAGE_LOAD_WAIT, CACHE_DURATION, ENABLE_PROXY
 from proxy_manager import ProxyManager
+
+logger = logging.getLogger(__name__)
 
 
 class FastPriceFetcher:
@@ -251,52 +255,74 @@ class FastPriceFetcher:
                 print(f"🎲 Random delay: {random_delay:.1f} saniye")
                 await asyncio.sleep(random_delay)
                 
-                # Tablo görünene kadar bekle (daha stabil)
-                try:
-                    await page.wait_for_selector("table", timeout=4000)
-                except Exception:
-                    pass
-                await asyncio.sleep(PAGE_LOAD_WAIT)
-
-                # Tabloları bul - sayfa yapısı değişse de çalışacak şekilde tüm tabloları tara
-                tables = await page.query_selector_all("table")
-                print(f"📊 Sayfada {len(tables)} tablo bulundu")
-                if not tables:
-                    raise Exception("Tablo bulunamadı")
-
-                # Tüm tabloları tara, sayısal fiyat içeren hücreyi ara (XAURUB ~50-10000 arası)
+                # Tablo + fiyat hücresi gelene kadar dinamik bekle.
+                # ProFinance tabloyu JS ile (realtime /history verisiyle) kurduğu için
+                # sabit süre yerine veri gelene kadar yoklamak çok daha stabil.
                 main_table = None
                 bid = ask = last = time_txt = ""
                 cells = []
+                table_count = 0
 
-                for i, tbl in enumerate(tables):
-                    rows = await tbl.query_selector_all("tr")
-                    for row in rows:
-                        tds = await row.query_selector_all("td")
-                        if len(tds) < 3:
-                            continue
-                        texts = [(await td.inner_text()).strip() for td in tds]
-                        for j, txt in enumerate(texts[:4]):
-                            try:
-                                val = float(txt.replace(",", ".").replace(" ", ""))
-                                if 50 < val < 10000:
-                                    main_table = tbl
-                                    bid = texts[0] if len(texts) > 0 else ""
-                                    ask = texts[1] if len(texts) > 1 else ""
-                                    last = texts[j]
-                                    time_txt = texts[j + 1] if len(texts) > j + 1 else ""
-                                    cells = tds
-                                    print(f"✅ Fiyat tablosu bulundu: tablo #{i}, hücre #{j}, değer={val}")
-                                    break
-                            except ValueError:
+                deadline = time.time() + 12.0  # en fazla 12 sn veri bekle
+                attempt = 0
+                while time.time() < deadline:
+                    attempt += 1
+                    tables = await page.query_selector_all("table")
+                    table_count = len(tables)
+
+                    # Tüm tabloları tara, sayısal fiyat içeren hücreyi ara (XAURUB ~50-10000 arası)
+                    for i, tbl in enumerate(tables):
+                        rows = await tbl.query_selector_all("tr")
+                        for row in rows:
+                            tds = await row.query_selector_all("td")
+                            if len(tds) < 3:
                                 continue
+                            texts = [(await td.inner_text()).strip() for td in tds]
+                            for j, txt in enumerate(texts[:4]):
+                                try:
+                                    val = float(txt.replace(",", ".").replace(" ", ""))
+                                    if 50 < val < 10000:
+                                        main_table = tbl
+                                        bid = texts[0] if len(texts) > 0 else ""
+                                        ask = texts[1] if len(texts) > 1 else ""
+                                        last = texts[j]
+                                        time_txt = texts[j + 1] if len(texts) > j + 1 else ""
+                                        cells = tds
+                                        logger.info(
+                                            f"✅ Fiyat hücresi bulundu: tablo #{i}, hücre #{j}, "
+                                            f"değer={val} (deneme {attempt})"
+                                        )
+                                        break
+                                except ValueError:
+                                    continue
+                            if main_table:
+                                break
                         if main_table:
                             break
-                    if main_table:
+
+                    if main_table and last:
                         break
+                    await asyncio.sleep(0.7)
+
+                logger.info(
+                    f"📊 ProFinance sonuç: {table_count} tablo, "
+                    f"fiyat hücresi={'VAR' if main_table else 'YOK'} ({attempt} deneme)"
+                )
 
                 if not main_table or not last:
-                    raise Exception("Tablo bulunamadı")
+                    # Teşhis: sayfa gerçekten yüklendi mi yoksa engelli/boş/challenge mı?
+                    try:
+                        title = await page.title()
+                    except Exception:
+                        title = "?"
+                    try:
+                        body_txt = (await page.inner_text("body"))[:160].replace("\n", " ").strip()
+                    except Exception:
+                        body_txt = "?"
+                    raise Exception(
+                        f"Tablo bulunamadı [tablo={table_count}, başlık='{title}', "
+                        f"içerik='{body_txt}']"
+                    )
 
                 # Başlıklar (log için)
                 headers = await main_table.query_selector_all("tr:first-child td")
