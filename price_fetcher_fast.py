@@ -232,10 +232,14 @@ class FastPriceFetcher:
                     );
                 """)
 
-                # Ağ optimizasyonu: ağır kaynakları engelle
+                # Ağ optimizasyonu: SADECE görselleri engelle.
+                # ProFinance tabloyu artık JS ile kuruyor (template.html + realtime
+                # /history verisi). stylesheet/font/"other"/xhr gibi kaynakları
+                # bloklamak chart'ın kurulmasını engelleyip "Charts loading..."da
+                # takılmaya yol açıyordu; o yüzden sadece image abort ediliyor.
                 async def _route_filter(route, request):
                     try:
-                        if request.resource_type in ["image", "stylesheet", "font", "media", "other"]:
+                        if request.resource_type == "image":
                             await route.abort()
                         else:
                             await route.continue_()
@@ -245,6 +249,18 @@ class FastPriceFetcher:
                         except Exception:
                             pass
                 await page.route("**/*", _route_filter)
+
+                # Teşhis: chart/veri isteklerinin durumunu logla (engelli mi, 403 mü?)
+                def _log_response(resp):
+                    u = resp.url
+                    if any(k in u for k in ("history", "template", "subscribe", "refresh", "goldgrrub")):
+                        logger.info(f"📥 ProFinance istek: {resp.status} {u[:120]}")
+                def _log_failed(req):
+                    u = req.url
+                    if any(k in u for k in ("history", "template", "subscribe", "refresh", "goldgrrub")):
+                        logger.warning(f"⚠️ ProFinance istek BAŞARISIZ: {req.failure} {u[:120]}")
+                page.on("response", _log_response)
+                page.on("requestfailed", _log_failed)
 
                 print("🔗 Sayfaya gidiyorum...")
                 await page.goto(self.url, wait_until="domcontentloaded", timeout=8000)
