@@ -264,7 +264,7 @@ class FastPriceFetcher:
                 if not tables:
                     raise Exception("Tablo bulunamadı")
 
-                # Tüm tabloları tara, sayısal fiyat içeren hücreyi ara (XAURUB ~50-500 arası)
+                # Tüm tabloları tara, sayısal fiyat içeren hücreyi ara (XAURUB ~50-10000 arası)
                 main_table = None
                 bid = ask = last = time_txt = ""
                 cells = []
@@ -279,7 +279,7 @@ class FastPriceFetcher:
                         for j, txt in enumerate(texts[:4]):
                             try:
                                 val = float(txt.replace(",", ".").replace(" ", ""))
-                                if 50 < val < 500:
+                                if 50 < val < 10000:
                                     main_table = tbl
                                     bid = texts[0] if len(texts) > 0 else ""
                                     ask = texts[1] if len(texts) > 1 else ""
