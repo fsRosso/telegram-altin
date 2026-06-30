@@ -250,17 +250,24 @@ class FastPriceFetcher:
                             pass
                 await page.route("**/*", _route_filter)
 
-                # Teşhis: chart/veri isteklerinin durumunu logla (engelli mi, 403 mü?)
+                # Teşhis: tüm ProFinance isteklerini + JS console/sayfa hatalarını logla
                 def _log_response(resp):
                     u = resp.url
-                    if any(k in u for k in ("history", "template", "subscribe", "refresh", "goldgrrub")):
-                        logger.info(f"📥 ProFinance istek: {resp.status} {u[:120]}")
+                    if "profinance.ru" in u:
+                        logger.info(f"📥 PF {resp.request.resource_type}: {resp.status} {u[:110]}")
                 def _log_failed(req):
                     u = req.url
-                    if any(k in u for k in ("history", "template", "subscribe", "refresh", "goldgrrub")):
-                        logger.warning(f"⚠️ ProFinance istek BAŞARISIZ: {req.failure} {u[:120]}")
+                    if "profinance.ru" in u:
+                        logger.warning(f"⚠️ PF FAIL {req.resource_type}: {req.failure} {u[:110]}")
+                def _log_console(msg):
+                    if msg.type in ("error", "warning"):
+                        logger.warning(f"🟡 PF console[{msg.type}]: {msg.text[:160]}")
+                def _log_pageerror(err):
+                    logger.error(f"🔴 PF pageerror: {str(err)[:200]}")
                 page.on("response", _log_response)
                 page.on("requestfailed", _log_failed)
+                page.on("console", _log_console)
+                page.on("pageerror", _log_pageerror)
 
                 print("🔗 Sayfaya gidiyorum...")
                 await page.goto(self.url, wait_until="domcontentloaded", timeout=8000)
