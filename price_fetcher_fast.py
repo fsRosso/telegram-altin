@@ -27,6 +27,12 @@ class FastPriceFetcher:
         self.current_proxy = None
         
         # Gelişmiş header (bot tespitini zorlaştır)
+        # NOT: Sec-Fetch-* ve Upgrade-Insecure-Requests header'ları BİLEREK yok.
+        # set_extra_http_headers bunları TÜM isteklere (css/js dahil) uyguluyor;
+        # bu navigasyona özel header'lar alt kaynaklara konunca Chromium isteği
+        # net::ERR_INVALID_ARGUMENT ile reddediyor → fastChart.min.js yüklenemiyor
+        # → tablo kurulamıyor → "Tablo bulunamadı". Chromium zaten doğru
+        # Sec-Fetch-* header'larını istek tipine göre kendi ekliyor.
         self.headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -37,10 +43,6 @@ class FastPriceFetcher:
             "Accept-Encoding": "gzip, deflate",
             "DNT": "1",
             "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
             "Cache-Control": "max-age=0"
         }
         
